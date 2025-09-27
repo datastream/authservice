@@ -1,0 +1,13 @@
+---
+listenAddress: ":9096"
+domain: "http://localhost"
+logFile: "authserver.log"
+dbFile: "authserver.db"
+databaseType: postgresql
+databaseURI: postgres://devops:devops@localhost/userdev
+session: "authserver_session"
+origins:
+  - "http://localhost:9094"
+  - "http://localhost:9095"
+  - "http://localhost:3000"
+  - "http://localhost:8080"

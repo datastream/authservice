@@ -1,0 +1,3 @@
+authserver.db
+authserver.log
+cmd/authservice/authservice
