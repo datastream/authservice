@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"os"
 
-	dbmodels "github.com/datastream/authservice/models"
+	dbmodels "github.com/datastream/authservice/pkg/models"
 
 	"github.com/glebarez/sqlite"
 	"github.com/go-oauth2/oauth2/v4/errors"
@@ -81,7 +81,7 @@ func (a *AuthService) InitOAuthServer() error {
 
 	manager.MapAccessGenerate(generates.NewAccessGenerate())
 	// client store
-	clientStore := dbmodels.ClientStore{}
+	clientStore := &dbmodels.ClientStore{}
 	manager.MapClientStorage(clientStore)
 
 	srv := server.NewServer(server.NewConfig(), manager)
