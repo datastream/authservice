@@ -20,7 +20,7 @@ func Register(db *gorm.DB) {
 		}
 
 		DB = db
-		if err := DB.AutoMigrate(&Token{}); err != nil {
+		if err := DB.AutoMigrate(&Token{}, &User{}); err != nil {
 			log.Println("[Err] AutoMigrate failed:", err)
 		}
 	})

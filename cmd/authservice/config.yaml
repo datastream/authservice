@@ -4,7 +4,7 @@ domain: "http://localhost"
 logFile: "authserver.log"
 dbFile: "authserver.db"
 databaseType: postgresql
-databaseURI: postgres://devops:devops@localhost/userdev
+databaseURI: postgres://devops:devops@localhost/auth
 session: "authserver_session"
 origins:
   - "http://localhost:9094"

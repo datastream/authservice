@@ -63,6 +63,9 @@ func main() {
 	r.GET("/auth", controllers.AuthHandler)
 	r.GET("/tokens", controllers.ClientTokensShow)
 	r.POST("/tokens", controllers.ClientTokensCreate)
+	r.GET("/register", controllers.NewUser)
+	r.POST("/register", controllers.Register)
+
 	oauth := controllers.NewOAuthController(srv.Server)
 	r.GET("/oauth/authorize", oauth.OAuthHandler)
 	r.POST("/oauth/authorize", oauth.OAuthHandler)

@@ -17,9 +17,9 @@ type User struct {
 	ID             int `json:"id" gorm:"primaryKey"`
 }
 
-func (u *User) BeforeSave(tx *gorm.DB) (err error) {
-	if len(u.HashedPassword) > 0 { // Only hash if a new password is set or updated
-		hashedPassword, err := bcrypt.GenerateFromPassword(u.HashedPassword, bcrypt.DefaultCost)
+func (u *User) BeforeSave(password string) (err error) {
+	if len(password) > 0 { // Only hash if a new password is set or updated
+		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 		if err != nil {
 			return err
 		}
@@ -27,6 +27,18 @@ func (u *User) BeforeSave(tx *gorm.DB) (err error) {
 	}
 	return nil
 }
-func CheckPassword(storedHashedPassword []byte, providedPassword string) error {
-	return bcrypt.CompareHashAndPassword(storedHashedPassword, []byte(providedPassword))
+func (u *User) CheckPassword(providedPassword string) error {
+	return bcrypt.CompareHashAndPassword(u.HashedPassword, []byte(providedPassword))
+}
+func (u *User) Save() error {
+	return DB.FirstOrCreate(u).Error
+}
+
+func FindUserByUsername(username string) (*User, error) {
+	var user User
+	result := DB.Where("username = ?", username).First(&user)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return &user, nil
 }

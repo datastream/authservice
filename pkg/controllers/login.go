@@ -2,8 +2,10 @@ package controllers
 
 import (
 	"context"
+	"log"
 	"net/http"
 
+	"github.com/datastream/authservice/pkg/models"
 	"github.com/gin-gonic/gin"
 	"github.com/go-session/session/v3"
 )
@@ -41,21 +43,24 @@ func Login(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	// need implement user authentication here
-	// for demo, we just accept username: admin, password: admin
-	if postForm.Username == "admin" && postForm.Password == "admin" {
-		store.Set("LoggedInUserID", postForm.Username)
-		err = store.Save()
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
-		// redirect to /auth
-		c.Header("Location", "/auth")
-		c.JSON(http.StatusFound, gin.H{"message": "Login successful", "redirect": "/auth"})
-	} else {
+	// check user password
+	user, err := models.FindUserByUsername(postForm.Username)
+	if err != nil || user.CheckPassword(postForm.Password) != nil {
+		log.Print("Invalid credentials for user: ", user.HashedPassword, user.CheckPassword(postForm.Password), err)
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
+		return
 	}
+
+	store.Set("LoggedInUserID", postForm.Username)
+	err = store.Save()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	// redirect to /auth
+	c.Header("Location", "/auth")
+	c.JSON(http.StatusFound, gin.H{"message": "Login successful", "redirect": "/auth"})
+
 }
 
 // AuthHandler handles the /auth endpoint
