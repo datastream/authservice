@@ -80,3 +80,13 @@ func (c *ClientStore) GetByID(ctx context.Context, id string) (oauth2.ClientInfo
 		Public: token.Public,
 	}, nil
 }
+
+// FindTokensByUserID finds tokens by user ID
+func FindTokensByUserID(userID string) ([]Token, error) {
+	var tokens []Token
+	result := DB.Where("user_id = ?", userID).Find(&tokens)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return tokens, nil
+}

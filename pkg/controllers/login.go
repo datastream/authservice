@@ -15,7 +15,19 @@ type LoginForm struct {
 	Password string `form:"password" binding:"required"`
 }
 
-func Homepage(c *gin.Context) {
+func Loginpage(c *gin.Context) {
+	store, err := session.Start(context.TODO(), c.Writer, c.Request)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	if _, ok := store.Get("LoggedInUserID"); ok {
+		c.Header("Location", "/auth")
+		c.JSON(http.StatusFound, gin.H{"message": "Logged in", "redirect": "/auth"})
+		return
+	}
+
 	loginPage, err := http.Dir("static").Open("login.html")
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load login page"})
@@ -61,6 +73,23 @@ func Login(c *gin.Context) {
 	c.Header("Location", "/auth")
 	c.JSON(http.StatusFound, gin.H{"message": "Login successful", "redirect": "/auth"})
 
+}
+
+func Logout(c *gin.Context) {
+	store, err := session.Start(c.Request.Context(), c.Writer, c.Request)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	store.Delete("LoggedInUserID")
+	err = store.Save()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	// redirect to /login
+	c.Header("Location", "/login")
+	c.JSON(http.StatusFound, gin.H{"message": "Logout successful", "redirect": "/login"})
 }
 
 // AuthHandler handles the /auth endpoint

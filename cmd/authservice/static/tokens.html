@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Token Management</title>
+    <style>
+        /* Reset default browser styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f7fc;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 0;
+            flex-direction: column;
+            padding: 20px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 600px; /* Width is capped at 600px */
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            font-size: 1.8em;
+            margin-bottom: 20px;
+            color: #333;
+            text-align: center;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+            text-align: left;
+        }
+
+        .form-group label {
+            font-size: 1em;
+            font-weight: 500;
+            color: #555;
+        }
+
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
+            width: 100%;
+            padding: 12px;
+            font-size: 1em;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            transition: all 0.3s ease;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus,
+        .form-group select:focus {
+            border-color: #007BFF;
+            outline: none;
+            box-shadow: 0 0 5px rgba(0, 123, 255, 0.5);
+        }
+
+        .btn {
+            background-color: #007BFF;
+            color: white;
+            font-size: 1.1em;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            width: 100%;
+            transition: background-color 0.3s ease;
+        }
+
+        .btn:hover {
+            background-color: #0056b3;
+        }
+
+        .error-message {
+            color: #ff0000;
+            font-size: 0.9em;
+            margin-top: 10px;
+        }
+
+        .token-list {
+            margin-top: 40px;
+        }
+
+        .token-item {
+            background-color: #f8f9fa;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .token-item h5 {
+            margin-bottom: 10px;
+            font-size: 1.2em;
+        }
+
+        .token-item p {
+            color: #555;
+        }
+
+        /* Center form and content */
+        .form-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            padding: 20px;
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="form-container">
+        <div class="container">
+            <h1>Token Management</h1>
+
+            <!-- Form to create or update tokens -->
+            <form id="tokenForm" action="/create-token" method="POST" onsubmit="return submitForm(event)">
+                <div class="form-group">
+                    <label for="domain">Domain</label>
+                    <input type="text" id="domain" name="domain" required placeholder="Enter the domain">
+                </div>
+
+                <!-- Updated Client Type dropdown with boolean values -->
+                <div class="form-group">
+                    <label for="public">Client Type</label>
+                    <select id="public" name="public" required>
+                        <option value="" disabled selected>Select type</option>
+                        <option value="true">Public</option>
+                        <option value="false">Private</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="describe">Description</label>
+                    <textarea id="describe" name="describe" rows="4" placeholder="Enter description (optional)"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="userId">User ID</label>
+                    <input type="text" id="userId" name="userId" placeholder="Enter user ID (optional)">
+                </div>
+
+                <button type="submit" class="btn">Create Token</button>
+            </form>
+
+            <!-- Error message for form validation -->
+            <div class="error-message" id="formErrorMessage"></div>
+        </div>
+
+        <!-- Token List Section -->
+        <div class="container token-list">
+            <h2>Existing Tokens</h2>
+
+            <div id="tokenList">
+                <!-- Tokens will be listed here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Function to fetch tokens from the server via GET request
+        async function fetchTokens() {
+            try {
+                const response = await fetch('/tokens');
+                if (response.ok) {
+                    const tokens = await response.json();
+                    renderTokens(tokens["tokens"]); // Render tokens if successful
+                } else {
+                    throw new Error('Failed to fetch tokens');
+                }
+            } catch (error) {
+                console.error('Error fetching tokens:', error);
+                alert('An error occurred while fetching tokens.');
+            }
+        }
+
+        // Function to render tokens on the page
+        function renderTokens(tokens) {
+            const tokenListElement = document.getElementById("tokenList");
+            tokenListElement.innerHTML = ""; // Clear the previous list
+
+            if (tokens && tokens.length > 0) {
+                tokens.forEach((token) => {
+                    const tokenElement = document.createElement("div");
+                    tokenElement.classList.add("token-item");
+
+                    tokenElement.innerHTML = `
+                        <h5>${token.domain}</h5>
+                        <p><strong>ClientID:</strong> ${token.clientID || "No clientID"}</p>
+                        <p><strong>ClientSecret:</strong> ${token.clientSecret || "No clientSecret"}</p>
+                        <p><strong>Public:</strong> ${token.public ? "Yes" : "No"}</p>
+                        <p><strong>Description:</strong> ${token.describe || "No description"}</p>
+                        <p><strong>User ID:</strong> ${token.userId || "Not provided"}</p>
+                    `;
+
+                    tokenListElement.appendChild(tokenElement);
+                });
+            } else {
+                tokenListElement.innerHTML = "<p>No tokens available.</p>";
+            }
+        }
+
+        // Handle form submission
+        function submitForm(event) {
+            event.preventDefault();
+
+            const domain = document.getElementById("domain").value;
+            const publicStatus = document.getElementById("public").value === 'true'; // Convert to boolean
+            const describe = document.getElementById("describe").value;
+            const userId = document.getElementById("userId").value;
+
+            // Simple validation
+            if (!domain || publicStatus === undefined) {
+                document.getElementById("formErrorMessage").textContent = "Domain and Application Type are required.";
+                return false;
+            }
+
+            // Add new token to tokens array (simulate API call)
+            const newToken = { domain, public: publicStatus, describe, userId };
+
+            // Send the token data to the server (for example: POST request)
+            fetch('/tokens', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(newToken),
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('Token created successfully:', data);
+                fetchTokens(); // Re-fetch tokens after creating a new one
+            })
+            .catch(error => {
+                console.error('Error creating token:', error);
+                alert('Failed to create token');
+            });
+
+            // Clear form and error message
+            document.getElementById("tokenForm").reset();
+            document.getElementById("formErrorMessage").textContent = "";
+
+            return true;
+        }
+
+        // Fetch tokens on page load
+        window.onload = fetchTokens;
+    </script>
+
+</body>
+
+</html>

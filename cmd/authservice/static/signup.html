@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign Up</title>
+    <style>
+        /* Reset default browser styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f7fc;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 0;
+            flex-direction: column;
+        }
+
+        /* Logout Link at the Top */
+        .logout-link {
+            text-align: right;
+            width: 100%;
+            padding: 15px;
+            background-color: #f8f9fa;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .logout-link a {
+            color: #007BFF;
+            text-decoration: none;
+            font-size: 1.1em;
+        }
+
+        .logout-link a:hover {
+            text-decoration: underline;
+        }
+
+        .signup-container {
+            background: #fff;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 500px;
+            text-align: center;
+        }
+
+        .signup-container h1 {
+            font-size: 1.8em;
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+            text-align: left;
+        }
+
+        .form-group label {
+            font-size: 1em;
+            font-weight: 500;
+            color: #555;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            font-size: 1em;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            transition: all 0.3s ease;
+        }
+
+        .form-group input:focus {
+            border-color: #007BFF;
+            outline: none;
+            box-shadow: 0 0 5px rgba(0, 123, 255, 0.5);
+        }
+
+        .btn {
+            background-color: #007BFF;
+            color: white;
+            font-size: 1.1em;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            width: 100%;
+            transition: background-color 0.3s ease;
+        }
+
+        .btn:hover {
+            background-color: #0056b3;
+        }
+
+        .signup-footer {
+            margin-top: 20px;
+            font-size: 0.9em;
+            color: #888;
+        }
+
+        .signup-footer a {
+            color: #007BFF;
+            text-decoration: none;
+        }
+
+        .signup-footer a:hover {
+            text-decoration: underline;
+        }
+
+        /* Error message styling */
+        .error {
+            color: #ff0000;
+            font-size: 0.9em;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Signup Form -->
+    <div class="signup-container">
+        <h1>Sign Up</h1>
+        <form id="signupForm" action="/signup" method="POST" onsubmit="return validateForm()">
+            <div class="form-group">
+                <label for="username">Username</label>
+                <input type="text" id="username" name="username" required placeholder="Choose a username">
+            </div>
+
+            <div class="form-group">
+                <label for="email">Email</label>
+                <input type="email" id="email" name="email" required placeholder="Enter your email" 
+                       pattern="^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$">
+                <div class="error" id="emailError"></div>
+            </div>
+
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" required placeholder="Create a password">
+            </div>
+
+            <div class="form-group">
+                <label for="confirmPassword">Confirm Password</label>
+                <input type="password" id="confirmPassword" name="confirmPassword" required placeholder="Confirm your password">
+                <div class="error" id="passwordError"></div>
+            </div>
+
+            <button type="submit" class="btn">Sign Up</button>
+        </form>
+
+        <div class="signup-footer">
+            <p>Already have an account? <a href="/login">Log in</a></p>
+        </div>
+    </div>
+
+    <script>
+        // Function to validate the form before submission
+        function validateForm() {
+            let isValid = true;
+
+            // Reset errors
+            document.getElementById("emailError").textContent = "";
+            document.getElementById("passwordError").textContent = "";
+
+            // Validate email format
+            const email = document.getElementById("email").value;
+            const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+            if (!emailRegex.test(email)) {
+                document.getElementById("emailError").textContent = "Please enter a valid email address.";
+                isValid = false;
+            }
+
+            // Validate password and confirm password match
+            const password = document.getElementById("password").value;
+            const confirmPassword = document.getElementById("confirmPassword").value;
+            if (password !== confirmPassword) {
+                document.getElementById("passwordError").textContent = "Passwords do not match.";
+                isValid = false;
+            }
+
+            // Return false to prevent form submission if there are errors
+            return isValid;
+        }
+    </script>
+
+</body>
+
+</html>

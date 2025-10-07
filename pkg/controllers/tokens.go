@@ -10,7 +10,7 @@ import (
 )
 
 // ClientTokensShow shows the tokens page
-func ClientTokensShow(c *gin.Context) {
+func Managerpage(c *gin.Context) {
 	store, err := session.Start(context.TODO(), c.Writer, c.Request)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -40,7 +40,7 @@ type TokenForm struct {
 	Domain   string `form:"domain" json:"domain" binding:"required"`
 	Public   bool   `form:"public" json:"public" binding:"required"`
 	Describe string `form:"describe" json:"describe"`
-	UserID   string `form:"userId" json:"userID" binding:"required"`
+	UserID   string `form:"userId" json:"userID"`
 }
 
 func ClientTokensCreate(c *gin.Context) {
@@ -49,8 +49,8 @@ func ClientTokensCreate(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-
-	if _, ok := store.Get("LoggedInUserID"); !ok {
+	user, ok := store.Get("LoggedInUserID")
+	if !ok {
 		c.Header("Location", "/login")
 		c.JSON(http.StatusFound, gin.H{"message": "Not logged in", "redirect": "/login"})
 		return
@@ -59,6 +59,9 @@ func ClientTokensCreate(c *gin.Context) {
 	if err := c.ShouldBind(&postForm); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
+	}
+	if postForm.UserID == "" {
+		postForm.UserID = user.(string)
 	}
 	token := models.Token{
 		UserID:   postForm.UserID,
@@ -74,5 +77,27 @@ func ClientTokensCreate(c *gin.Context) {
 		"message":       "Token created successfully",
 		"client_id":     token.ClientID,
 		"client_secret": token.ClientSecret,
+	})
+}
+func TokensList(c *gin.Context) {
+	store, err := session.Start(context.TODO(), c.Writer, c.Request)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	user, ok := store.Get("LoggedInUserID")
+	if !ok {
+		c.Header("Location", "/login")
+		c.JSON(http.StatusFound, gin.H{"message": "Not logged in", "redirect": "/login"})
+		return
+	}
+	tokens, err := models.FindTokensByUserID(user.(string))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch tokens"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"tokens": tokens,
 	})
 }

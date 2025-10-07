@@ -7,8 +7,7 @@ import (
 	"net/http"
 	"os"
 
-	dbmodels "github.com/datastream/authservice/pkg/models"
-
+	"github.com/datastream/authservice/pkg/models"
 	"github.com/glebarez/sqlite"
 	"github.com/go-oauth2/oauth2/v4/errors"
 	"github.com/go-oauth2/oauth2/v4/generates"
@@ -66,7 +65,7 @@ func (a *AuthService) InitDB() error {
 	default:
 		return fmt.Errorf("bad database type: %s", a.DatabaseType)
 	}
-	dbmodels.Register(db)
+	models.Register(db)
 	a.DB = db
 	return err
 }
@@ -81,7 +80,7 @@ func (a *AuthService) InitOAuthServer() error {
 
 	manager.MapAccessGenerate(generates.NewAccessGenerate())
 	// client store
-	clientStore := &dbmodels.ClientStore{}
+	clientStore := &models.ClientStore{}
 	manager.MapClientStorage(clientStore)
 
 	srv := server.NewServer(server.NewConfig(), manager)
@@ -97,12 +96,14 @@ func (a *AuthService) SetServerHandlers() {
 	a.Server.SetClientInfoHandler(server.ClientFormHandler)
 
 	a.Server.SetPasswordAuthorizationHandler(func(ctx context.Context, clientID, username, password string) (userID string, err error) {
-		if username == "admin" && password == "admin" {
-			userID = "admin"
-		} else {
-			log.Println("Invalid username or password")
+		// check user password
+		user, err := models.FindUserByUsername(username)
+		if err != nil || user.CheckPassword(password) != nil {
+			log.Println("Invalid credentials for user: ", username, err)
 			err = errors.New("invalid username or password")
+			return
 		}
+		userID = user.Username
 		return
 	})
 

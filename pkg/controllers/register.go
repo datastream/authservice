@@ -5,6 +5,7 @@ import (
 
 	"github.com/datastream/authservice/pkg/models"
 	"github.com/gin-gonic/gin"
+	"github.com/go-session/session/v3"
 )
 
 type RegisterForm struct {
@@ -14,22 +15,22 @@ type RegisterForm struct {
 }
 
 func NewUser(c *gin.Context) {
-	loginPage, err := http.Dir("static").Open("login.html")
+	signupPage, err := http.Dir("static").Open("signup.html")
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load login page"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load signup page"})
 		return
 	}
-	defer loginPage.Close()
+	defer signupPage.Close()
 
-	stat, err := loginPage.Stat()
+	stat, err := signupPage.Stat()
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read login page"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read signup page"})
 		return
 	}
 
-	http.ServeContent(c.Writer, c.Request, "register.html", stat.ModTime(), loginPage)
+	http.ServeContent(c.Writer, c.Request, "signup.html", stat.ModTime(), signupPage)
 }
-func Register(c *gin.Context) {
+func Signup(c *gin.Context) {
 	var postForm RegisterForm
 	if err := c.ShouldBind(&postForm); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -43,6 +44,19 @@ func Register(c *gin.Context) {
 	if err := user.Save(); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to register user"})
 	}
+	store, err := session.Start(c.Request.Context(), c.Writer, c.Request)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Register successful"})
+	store.Set("LoggedInUserID", postForm.Username)
+	err = store.Save()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	// redirect to /auth
+	c.Header("Location", "/auth")
+	c.JSON(http.StatusFound, gin.H{"message": "Login successful", "redirect": "/auth"})
 }
