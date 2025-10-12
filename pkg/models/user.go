@@ -17,7 +17,7 @@ type User struct {
 	ID             int `json:"id" gorm:"primaryKey"`
 }
 
-func (u *User) BeforeSave(password string) (err error) {
+func (u *User) GenHashedPassword(password string) (err error) {
 	if len(password) > 0 { // Only hash if a new password is set or updated
 		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 		if err != nil {

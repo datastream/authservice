@@ -40,7 +40,7 @@ func Signup(c *gin.Context) {
 		Username: postForm.Username,
 		Email:    postForm.Email,
 	}
-	user.BeforeSave(postForm.Password)
+	user.GenHashedPassword(postForm.Password)
 	if err := user.Save(); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to register user"})
 	}
