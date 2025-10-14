@@ -6,6 +6,9 @@ dbFile: "authserver.db"
 databaseType: postgresql
 databaseURI: postgres://devops:devops@localhost/auth
 session: "authserver_session"
+redis: "localhost:6379"
+redisPassword: ""
+redisDB: 0
 origins:
   - "http://localhost:9094"
   - "http://localhost:9095"

@@ -12,6 +12,8 @@ import (
 	"github.com/datastream/authservice/pkg/core"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/go-session/redis/v3"
+	"github.com/go-session/session/v3"
 )
 
 var (
@@ -56,7 +58,16 @@ func main() {
 			"status": "ok",
 		})
 	})
-
+	if srv.Redis != "" {
+		session.InitManager(
+			session.SetCookieName(srv.SessionName),
+			session.SetStore(redis.NewRedisStore(&redis.Options{
+				Addr:     srv.Redis,
+				Password: srv.RedisPassword,
+				DB:       srv.RedisDB,
+			})),
+		)
+	}
 	// OAuth 2.0 endpoints
 	r.GET("/login", controllers.Loginpage)
 	r.POST("/login", controllers.Login)

@@ -29,6 +29,9 @@ type AuthService struct {
 	DatabaseURI   string `yaml:"databaseURI"`
 	DatabaseType  string `yaml:"databaseType"`
 	DB            *gorm.DB
+	Redis         string `yaml:"redis"`
+	RedisPassword string `yaml:"redisPassword"`
+	RedisDB       int    `yaml:"redisDB"`
 	// cookie ID
 	SessionName string   `yaml:"sessionName"`
 	Origins     []string `yaml:"origins"`
