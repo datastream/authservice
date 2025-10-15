@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/url"
 	"time"
@@ -27,7 +28,15 @@ func (o *OAuthContorller) OAuthHandler(c *gin.Context) {
 	}
 	var form url.Values
 	if v, ok := store.Get("ReturnUri"); ok {
-		form = v.(url.Values)
+		// set v to request form
+		payload, err := json.Marshal(v)
+		if err == nil {
+			err = json.Unmarshal(payload, &form)
+		}
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
 	}
 	c.Request.Form = form
 	store.Delete("ReturnUri")

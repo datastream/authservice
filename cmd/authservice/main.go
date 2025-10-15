@@ -61,6 +61,7 @@ func main() {
 	if srv.Redis != "" {
 		session.InitManager(
 			session.SetCookieName(srv.SessionName),
+			// todo if you want use redis cluster, use redis.NewRedisClusterStore
 			session.SetStore(redis.NewRedisStore(&redis.Options{
 				Addr:     srv.Redis,
 				Password: srv.RedisPassword,
