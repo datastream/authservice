@@ -22,7 +22,7 @@ func LoginPage(c *gin.Context) {
 		return
 	}
 	c.Request.ParseForm()
-	if c.Request.Form != nil {
+	if len(c.Request.Form) > 0 {
 		// save raw query to session
 		store.Set("AuthForm", c.Request.Form)
 		store.Save()
