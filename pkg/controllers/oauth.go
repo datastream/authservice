@@ -59,7 +59,7 @@ func (o *OAuthContorller) OAuthHandler(c *gin.Context) {
 		}
 	}
 	c.Request.Form = form
-	store.Delete("ReturnUri")
+	store.Delete("AuthForm")
 	store.Save()
 
 	err = o.Srv.HandleAuthorizeRequest(c.Writer, c.Request)
