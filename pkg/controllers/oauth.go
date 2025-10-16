@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/url"
@@ -86,4 +87,26 @@ func (o *OAuthContorller) TestHandler(c *gin.Context) {
 		"expires_in": int64(time.Until(token.GetAccessCreateAt().Add(token.GetAccessExpiresIn())).Seconds()),
 		"scope":      token.GetScope(),
 	})
+}
+
+// Profile shows the profile page
+func (o *OAuthContorller) Profile(c *gin.Context) {
+	token, err := o.Srv.ValidationBearerToken(c.Request)
+	if err == nil && token != nil {
+		c.JSON(http.StatusOK, gin.H{"user": token.GetUserID(), "client": token.GetClientID(), "expires": token.GetAccessCreateAt().Add(token.GetAccessExpiresIn()).String()})
+		return
+	}
+	store, err := session.Start(context.TODO(), c.Writer, c.Request)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	userID, ok := store.Get("LoggedInUserID")
+	if !ok {
+		c.Header("Location", "/login")
+		c.JSON(http.StatusFound, gin.H{"message": "Not logged in", "redirect": "/login"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"user": userID})
 }

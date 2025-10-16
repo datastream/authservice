@@ -48,23 +48,6 @@ func LoginPage(c *gin.Context) {
 	http.ServeContent(c.Writer, c.Request, "login.html", stat.ModTime(), loginPage)
 }
 
-// Profile shows the profile page
-func Profile(c *gin.Context) {
-	store, err := session.Start(context.TODO(), c.Writer, c.Request)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	userID, ok := store.Get("LoggedInUserID")
-	if !ok {
-		c.Header("Location", "/login")
-		c.JSON(http.StatusFound, gin.H{"message": "Not logged in", "redirect": "/login"})
-		return
-	}
-	c.JSON(http.StatusOK, gin.H{"user": userID})
-}
-
 func Login(c *gin.Context) {
 	var postForm LoginForm
 	if err := c.ShouldBind(&postForm); err != nil {
