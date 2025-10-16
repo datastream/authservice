@@ -30,11 +30,11 @@ func LoginPage(c *gin.Context) {
 	if _, ok := store.Get("LoggedInUserID"); ok {
 		if _, ok := store.Get("AuthForm"); ok {
 			c.Header("Location", "/auth")
-			c.JSON(http.StatusFound, gin.H{"message": "Logged in", "redirect": "/auth"})
+			c.JSON(http.StatusTemporaryRedirect, gin.H{"message": "Logged in", "redirect": "/auth"})
 			return
 		}
 		c.Header("Location", "/profile")
-		c.JSON(http.StatusFound, gin.H{"message": "Logged in", "redirect": "/auth"})
+		c.JSON(http.StatusTemporaryRedirect, gin.H{"message": "Logged in", "redirect": "/auth"})
 		return
 	}
 
@@ -82,16 +82,16 @@ func Login(c *gin.Context) {
 	// redirect to redirect url or /profile
 	if _, ok := store.Get("AuthForm"); ok {
 		c.Header("Location", "/auth")
-		c.JSON(http.StatusFound, gin.H{"message": "Login successful", "redirect": "/auth"})
+		c.JSON(http.StatusTemporaryRedirect, gin.H{"message": "Login successful", "redirect": "/auth"})
 		return
 	}
 	if uri, ok := store.Get("ReturnUri"); ok {
 		c.Header("Location", uri.(string))
-		c.JSON(http.StatusFound, gin.H{"message": "Login successful", "redirect": uri.(string)})
+		c.JSON(http.StatusTemporaryRedirect, gin.H{"message": "Login successful", "redirect": uri.(string)})
 		return
 	}
 	c.Header("Location", "/profile")
-	c.JSON(http.StatusFound, gin.H{"message": "Login successful", "redirect": "/profile"})
+	c.JSON(http.StatusTemporaryRedirect, gin.H{"message": "Login successful", "redirect": "/profile"})
 
 }
 
@@ -109,7 +109,7 @@ func Logout(c *gin.Context) {
 	}
 	// redirect to /login
 	c.Header("Location", "/login")
-	c.JSON(http.StatusFound, gin.H{"message": "Logout successful", "redirect": "/login"})
+	c.JSON(http.StatusTemporaryRedirect, gin.H{"message": "Logout successful", "redirect": "/login"})
 }
 
 // AuthHandler handles the /auth endpoint
@@ -122,7 +122,7 @@ func AuthHandler(c *gin.Context) {
 	}
 	if _, ok := store.Get("LoggedInUserID"); !ok {
 		c.Header("Location", "/login")
-		c.JSON(http.StatusFound, gin.H{"message": "Not logged in", "redirect": "/login"})
+		c.JSON(http.StatusTemporaryRedirect, gin.H{"message": "Not logged in", "redirect": "/login"})
 		return
 	}
 	// need to work on auth.html, pass url's query params to form

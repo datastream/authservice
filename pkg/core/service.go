@@ -132,7 +132,7 @@ func userAuthorizeHandler(w http.ResponseWriter, r *http.Request) (userID string
 	uid, ok := store.Get("LoggedInUserID")
 	if !ok {
 		w.Header().Set("Location", "/login")
-		w.WriteHeader(http.StatusFound)
+		w.WriteHeader(http.StatusTemporaryRedirect)
 		return
 	}
 

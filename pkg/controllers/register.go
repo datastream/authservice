@@ -57,6 +57,6 @@ func Signup(c *gin.Context) {
 		return
 	}
 	// redirect to /auth
-	c.Header("Location", "/auth")
-	c.JSON(http.StatusFound, gin.H{"message": "Login successful", "redirect": "/auth"})
+	c.Header("Location", "/profile")
+	c.JSON(http.StatusTemporaryRedirect, gin.H{"message": "Login successful", "redirect": "/auth"})
 }

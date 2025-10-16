@@ -31,7 +31,7 @@ func (o *OAuthContorller) AuthorizeHandler(c *gin.Context) {
 		store.Set("ReturnUri", c.Request.URL.RequestURI())
 		store.Save()
 		c.Header("Location", "/login")
-		c.JSON(http.StatusFound, gin.H{"message": "Not logged in", "redirect": "/login"})
+		c.JSON(http.StatusTemporaryRedirect, gin.H{"message": "Not logged in", "redirect": "/login"})
 		return
 	}
 	err = o.Srv.HandleAuthorizeRequest(c.Writer, c.Request)
@@ -105,7 +105,7 @@ func (o *OAuthContorller) Profile(c *gin.Context) {
 	userID, ok := store.Get("LoggedInUserID")
 	if !ok {
 		c.Header("Location", "/login")
-		c.JSON(http.StatusFound, gin.H{"message": "Not logged in", "redirect": "/login"})
+		c.JSON(http.StatusTemporaryRedirect, gin.H{"message": "Not logged in", "redirect": "/login"})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"user": userID})

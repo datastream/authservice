@@ -19,7 +19,7 @@ func Managerpage(c *gin.Context) {
 
 	if _, ok := store.Get("LoggedInUserID"); !ok {
 		c.Header("Location", "/login")
-		c.JSON(http.StatusFound, gin.H{"message": "Not logged in", "redirect": "/login"})
+		c.JSON(http.StatusTemporaryRedirect, gin.H{"message": "Not logged in", "redirect": "/login"})
 		return
 	}
 	tokenPage, err := http.Dir("static").Open("tokens.html")
@@ -52,7 +52,7 @@ func ClientTokensCreate(c *gin.Context) {
 	user, ok := store.Get("LoggedInUserID")
 	if !ok {
 		c.Header("Location", "/login")
-		c.JSON(http.StatusFound, gin.H{"message": "Not logged in", "redirect": "/login"})
+		c.JSON(http.StatusTemporaryRedirect, gin.H{"message": "Not logged in", "redirect": "/login"})
 		return
 	}
 	var postForm TokenForm
@@ -89,7 +89,7 @@ func TokensList(c *gin.Context) {
 	user, ok := store.Get("LoggedInUserID")
 	if !ok {
 		c.Header("Location", "/login")
-		c.JSON(http.StatusFound, gin.H{"message": "Not logged in", "redirect": "/login"})
+		c.JSON(http.StatusTemporaryRedirect, gin.H{"message": "Not logged in", "redirect": "/login"})
 		return
 	}
 	tokens, err := models.FindTokensByUserID(user.(string))
