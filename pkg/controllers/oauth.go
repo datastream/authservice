@@ -38,6 +38,8 @@ func (o *OAuthContorller) AuthorizeHandler(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 	}
+	store.Delete("ReturnUri")
+	store.Save()
 }
 
 func (o *OAuthContorller) OAuthHandler(c *gin.Context) {
