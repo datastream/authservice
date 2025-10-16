@@ -85,6 +85,11 @@ func Login(c *gin.Context) {
 		c.JSON(http.StatusFound, gin.H{"message": "Login successful", "redirect": "/auth"})
 		return
 	}
+	if uri, ok := store.Get("ReturnUri"); ok {
+		c.Header("Location", uri.(string))
+		c.JSON(http.StatusFound, gin.H{"message": "Login successful", "redirect": uri.(string)})
+		return
+	}
 	c.Header("Location", "/profile")
 	c.JSON(http.StatusFound, gin.H{"message": "Login successful", "redirect": "/profile"})
 
