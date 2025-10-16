@@ -20,6 +20,25 @@ func NewOAuthController(srv *server.Server) *OAuthContorller {
 	return &OAuthContorller{Srv: srv}
 }
 
+func (o *OAuthContorller) AuthorizeHandler(c *gin.Context) {
+	store, err := session.Start(c.Request.Context(), c.Writer, c.Request)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	if _, ok := store.Get("LoggedInUserID"); !ok {
+		store.Set("ReturnUri", c.Request.URL.RequestURI())
+		store.Save()
+		c.Header("Location", "/login")
+		c.JSON(http.StatusFound, gin.H{"message": "Not logged in", "redirect": "/login"})
+		return
+	}
+	err = o.Srv.HandleAuthorizeRequest(c.Writer, c.Request)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	}
+}
+
 func (o *OAuthContorller) OAuthHandler(c *gin.Context) {
 	store, err := session.Start(c.Request.Context(), c.Writer, c.Request)
 	if err != nil {
@@ -27,7 +46,7 @@ func (o *OAuthContorller) OAuthHandler(c *gin.Context) {
 		return
 	}
 	var form url.Values
-	if v, ok := store.Get("ReturnUri"); ok {
+	if v, ok := store.Get("AuthForm"); ok {
 		// set v to request form
 		payload, err := json.Marshal(v)
 		if err == nil {

@@ -70,8 +70,9 @@ func main() {
 		)
 	}
 	// OAuth 2.0 endpoints
-	r.GET("/login", controllers.Loginpage)
+	r.GET("/login", controllers.LoginPage)
 	r.POST("/login", controllers.Login)
+	r.GET("/profile", controllers.Profile)
 	r.GET("/logout", controllers.Logout)
 	r.GET("/auth", controllers.AuthHandler)
 	r.GET("/manager", controllers.Managerpage)
@@ -81,7 +82,7 @@ func main() {
 	r.POST("/signup", controllers.Signup)
 
 	oauth := controllers.NewOAuthController(srv.Server)
-	r.GET("/oauth/authorize", oauth.OAuthHandler)
+	r.GET("/oauth/authorize", oauth.AuthorizeHandler)
 	r.POST("/oauth/authorize", oauth.OAuthHandler)
 	r.POST("/oauth/token", oauth.TokenHandler)
 	r.GET("/test", oauth.TestHandler)

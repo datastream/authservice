@@ -12,5 +12,4 @@ current it use local file. change to redis if you want to run multi-instances.
 
 ### pages
 
-user register.html and tokens.html should be created.
-
+auth.html should print app info.
