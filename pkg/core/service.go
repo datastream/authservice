@@ -14,6 +14,8 @@ import (
 	"github.com/go-oauth2/oauth2/v4/manage"
 	"github.com/go-oauth2/oauth2/v4/server"
 	"github.com/go-oauth2/oauth2/v4/store"
+	oredis "github.com/go-oauth2/redis/v4"
+	"github.com/go-redis/redis/v8"
 	"github.com/go-session/session/v3"
 	"gopkg.in/yaml.v3"
 	"gorm.io/driver/mysql"
@@ -32,6 +34,7 @@ type AuthService struct {
 	Redis         string `yaml:"redis"`
 	RedisPassword string `yaml:"redisPassword"`
 	RedisDB       int    `yaml:"redisDB"`
+	RedisTokenDB  int    `yaml:"redisTokenDB"`
 	// cookie ID
 	SessionName string   `yaml:"sessionName"`
 	Origins     []string `yaml:"origins"`
@@ -49,6 +52,12 @@ func LoadConfig(name string) (*AuthService, error) {
 	err = yaml.Unmarshal(config, &conf)
 	if err != nil {
 		return nil, err
+	}
+	if conf.RedisDB == 0 {
+		conf.RedisDB = 0
+	}
+	if conf.RedisTokenDB == 0 {
+		conf.RedisTokenDB = 1
 	}
 	return &conf, nil
 }
@@ -79,7 +88,15 @@ func (a *AuthService) InitOAuthServer() error {
 	manager.SetAuthorizeCodeTokenCfg(manage.DefaultAuthorizeCodeTokenCfg)
 
 	// token store, if you want to use redis, just replace it with redis store
-	manager.MustTokenStorage(store.NewFileTokenStore(a.DBFile))
+	if a.Redis == "" {
+		manager.MustTokenStorage(store.NewFileTokenStore(a.DBFile))
+	} else {
+		manager.MapTokenStorage(oredis.NewRedisStore(&redis.Options{
+			Addr:     a.Redis,
+			Password: a.RedisPassword,
+			DB:       a.RedisTokenDB,
+		}))
+	}
 
 	manager.MapAccessGenerate(generates.NewAccessGenerate())
 	// client store
