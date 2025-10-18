@@ -29,6 +29,10 @@ func AuthPage(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	// disable http cache
+	c.Header("Cache-Control", "no-cache, no-store, must-revalidate")
+	c.Header("Pragma", "no-cache")
+	c.Header("Expires", "0")
 	if _, ok := store.Get("LoggedInUserID"); !ok {
 		store.Set("ReturnUri", c.Request.URL.RequestURI())
 		store.Save()
