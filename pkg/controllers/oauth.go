@@ -21,8 +21,10 @@ func NewOAuthController(srv *server.Server) *OAuthContorller {
 	return &OAuthContorller{Srv: srv}
 }
 
-func (o *OAuthContorller) AuthorizeHandler(c *gin.Context) {
-	store, err := session.Start(c.Request.Context(), c.Writer, c.Request)
+// GET /oauth/authorize
+// just a simple auth page to create a post form to authorize
+func AuthPage(c *gin.Context) {
+	store, err := session.Start(context.TODO(), c.Writer, c.Request)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -34,10 +36,26 @@ func (o *OAuthContorller) AuthorizeHandler(c *gin.Context) {
 		c.JSON(http.StatusFound, gin.H{"message": "Not logged in", "redirect": "/login"})
 		return
 	}
-	err = o.Srv.HandleAuthorizeRequest(c.Writer, c.Request)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+	// save raw query to session
+	c.Request.ParseForm()
+	if len(c.Request.Form) > 0 {
+		store.Set("AuthForm", c.Request.Form)
+		store.Save()
 	}
+	// need to work on auth.html, pass url's query params to form
+	authPage, err := http.Dir("static").Open("auth.html")
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load auth page"})
+		return
+	}
+	defer authPage.Close()
+	stat, err := authPage.Stat()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read auth page"})
+		return
+	}
+	http.ServeContent(c.Writer, c.Request, "auth.html", stat.ModTime(), authPage)
+	// clear return uri after use
 	store.Delete("ReturnUri")
 	store.Save()
 }
@@ -46,6 +64,11 @@ func (o *OAuthContorller) OAuthHandler(c *gin.Context) {
 	store, err := session.Start(c.Request.Context(), c.Writer, c.Request)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	if _, ok := store.Get("LoggedInUserID"); !ok {
+		c.Header("Location", "/login")
+		c.JSON(http.StatusFound, gin.H{"message": "Not logged in", "redirect": "/login"})
 		return
 	}
 	var form url.Values
@@ -61,13 +84,14 @@ func (o *OAuthContorller) OAuthHandler(c *gin.Context) {
 		}
 	}
 	c.Request.Form = form
-	store.Delete("AuthForm")
-	store.Save()
 
 	err = o.Srv.HandleAuthorizeRequest(c.Writer, c.Request)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
 	}
+	store.Delete("AuthForm")
+	store.Save()
 }
 
 func (o *OAuthContorller) TokenHandler(c *gin.Context) {

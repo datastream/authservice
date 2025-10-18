@@ -73,7 +73,6 @@ func main() {
 	r.GET("/login", controllers.LoginPage)
 	r.POST("/login", controllers.Login)
 	r.GET("/logout", controllers.Logout)
-	r.GET("/auth", controllers.AuthHandler)
 	r.GET("/manager", controllers.Managerpage)
 	r.GET("/tokens", controllers.TokensList)
 	r.POST("/tokens", controllers.ClientTokensCreate)
@@ -81,7 +80,7 @@ func main() {
 	r.POST("/signup", controllers.Signup)
 
 	oauth := controllers.NewOAuthController(srv.Server)
-	r.GET("/oauth/authorize", oauth.AuthorizeHandler)
+	r.GET("/oauth/authorize", controllers.AuthPage)
 	r.POST("/oauth/authorize", oauth.OAuthHandler)
 	r.POST("/oauth/token", oauth.TokenHandler)
 	r.GET("/profile", oauth.Profile)

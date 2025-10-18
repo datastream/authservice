@@ -15,24 +15,15 @@ type LoginForm struct {
 	Password string `form:"password" binding:"required"`
 }
 
+// login page don't need to handle uri query params
 func LoginPage(c *gin.Context) {
 	store, err := session.Start(context.TODO(), c.Writer, c.Request)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.Request.ParseForm()
-	if len(c.Request.Form) > 0 {
-		// save raw query to session
-		store.Set("AuthForm", c.Request.Form)
-		store.Save()
-	}
 	if _, ok := store.Get("LoggedInUserID"); ok {
-		if _, ok := store.Get("AuthForm"); ok {
-			c.Header("Location", "/auth")
-			c.JSON(http.StatusFound, gin.H{"message": "Logged in", "redirect": "/auth"})
-			return
-		}
+		// redirect to redirect url or /profile
 		if uri, ok := store.Get("ReturnUri"); ok {
 			c.Header("Location", uri.(string))
 			c.JSON(http.StatusTemporaryRedirect, gin.H{"message": "Login successful", "redirect": uri.(string)})
@@ -84,12 +75,6 @@ func Login(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	// redirect to redirect url or /profile
-	if _, ok := store.Get("AuthForm"); ok {
-		c.Header("Location", "/auth")
-		c.JSON(http.StatusFound, gin.H{"message": "Login successful", "redirect": "/auth"})
-		return
-	}
 	if uri, ok := store.Get("ReturnUri"); ok {
 		c.Header("Location", uri.(string))
 		c.JSON(http.StatusFound, gin.H{"message": "Login successful", "redirect": uri.(string)})
@@ -97,7 +82,6 @@ func Login(c *gin.Context) {
 	}
 	c.Header("Location", "/profile")
 	c.JSON(http.StatusFound, gin.H{"message": "Login successful", "redirect": "/profile"})
-
 }
 
 func Logout(c *gin.Context) {
@@ -115,32 +99,4 @@ func Logout(c *gin.Context) {
 	// redirect to /login
 	c.Header("Location", "/login")
 	c.JSON(http.StatusFound, gin.H{"message": "Logout successful", "redirect": "/login"})
-}
-
-// AuthHandler handles the /auth endpoint
-// /login?xxx -> /auth?xxx if not logged in
-func AuthHandler(c *gin.Context) {
-	store, err := session.Start(context.TODO(), c.Writer, c.Request)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-	if _, ok := store.Get("LoggedInUserID"); !ok {
-		c.Header("Location", "/login")
-		c.JSON(http.StatusFound, gin.H{"message": "Not logged in", "redirect": "/login"})
-		return
-	}
-	// need to work on auth.html, pass url's query params to form
-	authPage, err := http.Dir("static").Open("auth.html")
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load auth page"})
-		return
-	}
-	defer authPage.Close()
-	stat, err := authPage.Stat()
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read auth page"})
-		return
-	}
-	http.ServeContent(c.Writer, c.Request, "auth.html", stat.ModTime(), authPage)
 }
