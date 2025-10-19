@@ -90,3 +90,13 @@ func FindTokensByUserID(userID string) ([]Token, error) {
 	}
 	return tokens, nil
 }
+
+// FindTokenByClientID finds a token by client ID
+func FindTokenByClientID(clientID string) (*Token, error) {
+	var token Token
+	result := DB.Where("client_id = ?", clientID).First(&token)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return &token, nil
+}

@@ -3,10 +3,12 @@ package controllers
 import (
 	"context"
 	"encoding/json"
+	"html/template"
 	"net/http"
 	"net/url"
 	"time"
 
+	"github.com/datastream/authservice/pkg/models"
 	"github.com/gin-gonic/gin"
 	"github.com/go-oauth2/oauth2/v4/server"
 	"github.com/go-session/session/v3"
@@ -46,20 +48,17 @@ func AuthPage(c *gin.Context) {
 		store.Set("AuthForm", c.Request.Form)
 		store.Save()
 	}
-	// need to work on auth.html, pass url's query params to form
-	authPage, err := http.Dir("static").Open("auth.html")
+	token, err := models.FindTokenByClientID(c.Request.Form.Get("client_id"))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load auth page"})
+		c.Header("Location", "/profile")
+		c.JSON(http.StatusFound, gin.H{"message": "Client not found", "redirect": "/profile"})
 		return
 	}
-	defer authPage.Close()
-	stat, err := authPage.Stat()
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read auth page"})
-		return
-	}
-	http.ServeContent(c.Writer, c.Request, "auth.html", stat.ModTime(), authPage)
-	// clear return uri after use
+
+	// render auth page
+	t, err := template.New("auth").ParseFiles("static/auth.html")
+	t.Execute(c.Writer, token.Domain)
+	// render auth page
 	store.Delete("ReturnUri")
 	store.Save()
 }
