@@ -5,6 +5,7 @@ go 1.24.0
 toolchain go1.24.7
 
 require (
+	github.com/datastream/aws v0.0.0-20230303105126-faa0b2174581
 	github.com/gin-contrib/cors v1.7.6
 	github.com/gin-gonic/gin v1.11.0
 	github.com/glebarez/sqlite v1.11.0

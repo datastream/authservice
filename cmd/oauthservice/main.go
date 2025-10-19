@@ -77,6 +77,7 @@ func main() {
 	r.POST("/tokens", controllers.ClientTokensCreate)
 	r.GET("/signup", controllers.NewUser)
 	r.POST("/signup", controllers.Signup)
+	r.POST("/authentication", controllers.TokenAuth)
 
 	oauth := controllers.NewOAuthController(srv.Server)
 	r.GET("/oauth/authorize", controllers.AuthPage)
