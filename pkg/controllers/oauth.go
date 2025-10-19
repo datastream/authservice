@@ -98,13 +98,15 @@ func (o *OAuthContorller) Login(c *gin.Context) {
 		c.JSON(http.StatusFound, gin.H{"message": "Login successful", "redirect": uri.(string)})
 		return
 	}
-	// code exchage flow
-	err = o.Srv.HandleAuthorizeRequest(c.Writer, c.Request)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
+	c.Request.ParseForm()
+	if len(c.Request.Form) > 0 {
+		// code exchage flow
+		err = o.Srv.HandleAuthorizeRequest(c.Writer, c.Request)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
 	}
-
 	c.Header("Location", "/profile")
 	c.JSON(http.StatusFound, gin.H{"message": "Login successful", "redirect": "/profile"})
 }
