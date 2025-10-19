@@ -95,11 +95,7 @@ func (o *OAuthContorller) Login(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	if uri, ok := store.Get("ReturnUri"); ok {
-		c.Header("Location", uri.(string))
-		c.JSON(http.StatusFound, gin.H{"message": "Login successful", "redirect": uri.(string)})
-		return
-	}
+	// handle addtional oauth flow
 	if len(c.Query("client_id")) > 0 {
 		// code exchage flow
 		err = o.Srv.HandleAuthorizeRequest(c.Writer, c.Request)
@@ -108,6 +104,7 @@ func (o *OAuthContorller) Login(c *gin.Context) {
 		}
 		return
 	}
+	// redirect to /profile
 	c.Header("Location", "/profile")
 	c.JSON(http.StatusFound, gin.H{"message": "Login successful", "redirect": "/profile"})
 }

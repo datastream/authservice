@@ -28,12 +28,6 @@ func LoginPage(c *gin.Context) {
 		return
 	}
 	if _, ok := store.Get("LoggedInUserID"); ok {
-		// redirect to redirect url or /profile
-		if uri, ok := store.Get("ReturnUri"); ok {
-			c.Header("Location", uri.(string))
-			c.JSON(http.StatusTemporaryRedirect, gin.H{"message": "Login successful", "redirect": uri.(string)})
-			return
-		}
 		c.Header("Location", "/profile")
 		c.JSON(http.StatusFound, gin.H{"message": "Logged in", "redirect": "/auth"})
 		return
