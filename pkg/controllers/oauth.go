@@ -2,12 +2,10 @@ package controllers
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"html/template"
 	"log"
 	"net/http"
-	"net/url"
 	"time"
 
 	"github.com/datastream/authservice/pkg/models"
@@ -23,6 +21,11 @@ type OAuthContorller struct {
 
 func NewOAuthController(srv *server.Server) *OAuthContorller {
 	return &OAuthContorller{Srv: srv}
+}
+
+type AuthPageData struct {
+	Domain  string
+	AuthURL string
 }
 
 // GET /oauth/authorize
@@ -42,11 +45,9 @@ func AuthPage(c *gin.Context) {
 		c.JSON(http.StatusFound, gin.H{"message": "Not logged in", "redirect": fmt.Sprintf("/login?%s", c.Request.URL.RawQuery)})
 		return
 	}
-	// save raw query to session
-	c.Request.ParseForm()
-	if len(c.Request.Form) > 0 {
-		store.Set("AuthForm", c.Request.Form)
-		store.Save()
+	authPageData := AuthPageData{
+		AuthURL: c.Request.RequestURI,
+		Domain:  c.Request.Host,
 	}
 	token, err := models.FindTokenByClientID(c.Request.Form.Get("client_id"))
 	if err != nil {
@@ -54,6 +55,7 @@ func AuthPage(c *gin.Context) {
 		c.JSON(http.StatusFound, gin.H{"message": "Client not found", "redirect": "/profile"})
 		return
 	}
+	authPageData.Domain = token.Domain
 
 	// render auth page
 	t, err := template.ParseFiles("static/auth.html")
@@ -61,7 +63,7 @@ func AuthPage(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load auth page"})
 		return
 	}
-	err = t.Execute(c.Writer, token.Domain)
+	err = t.Execute(c.Writer, authPageData)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to render auth page"})
 		return
@@ -98,8 +100,7 @@ func (o *OAuthContorller) Login(c *gin.Context) {
 		c.JSON(http.StatusFound, gin.H{"message": "Login successful", "redirect": uri.(string)})
 		return
 	}
-	c.Request.ParseForm()
-	if len(c.Request.Form) > 0 {
+	if len(c.Query("client_id")) > 0 {
 		// code exchage flow
 		err = o.Srv.HandleAuthorizeRequest(c.Writer, c.Request)
 		if err != nil {
@@ -121,20 +122,6 @@ func (o *OAuthContorller) OAuthHandler(c *gin.Context) {
 		c.JSON(http.StatusFound, gin.H{"message": "Not logged in", "redirect": "/login"})
 		return
 	}
-	var form url.Values
-	if v, ok := store.Get("AuthForm"); ok {
-		// set v to request form
-		payload, err := json.Marshal(v)
-		if err == nil {
-			err = json.Unmarshal(payload, &form)
-		}
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
-	}
-	c.Request.Form = form
-
 	err = o.Srv.HandleAuthorizeRequest(c.Writer, c.Request)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
