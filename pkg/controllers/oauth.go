@@ -104,8 +104,8 @@ func (o *OAuthContorller) Login(c *gin.Context) {
 		err = o.Srv.HandleAuthorizeRequest(c.Writer, c.Request)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
 		}
+		return
 	}
 	c.Header("Location", "/profile")
 	c.JSON(http.StatusFound, gin.H{"message": "Login successful", "redirect": "/profile"})
