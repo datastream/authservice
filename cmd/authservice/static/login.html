@@ -101,8 +101,8 @@
 <body>
 
     <div class="login-container">
-        <h1>Login</h1>
-        <form action="/login" method="POST">
+        <h1>Login {{ .Domain }}</h1>
+        <form action="{{ .LoginURL }}" method="POST">
             <div class="form-group">
                 <label for="username">User Name</label>
                 <input type="text" id="username" name="username" required placeholder="Enter your username">

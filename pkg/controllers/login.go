@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"context"
+	"html/template"
 	"log"
 	"net/http"
 
@@ -13,6 +14,11 @@ import (
 type LoginForm struct {
 	Username string `form:"username" json:"username" binding:"required"`
 	Password string `form:"password" binding:"required"`
+}
+
+type LoginPageData struct {
+	Domain   string
+	LoginURL string
 }
 
 // login page don't need to handle uri query params
@@ -33,21 +39,26 @@ func LoginPage(c *gin.Context) {
 		c.JSON(http.StatusFound, gin.H{"message": "Logged in", "redirect": "/auth"})
 		return
 	}
-
-	loginPage, err := http.Dir("static").Open("login.html")
+	token, err := models.FindTokenByClientID(c.Request.Form.Get("client_id"))
+	loginData := LoginPageData{
+		LoginURL: c.Request.RequestURI,
+		Domain:   c.Request.Host,
+	}
+	if err == nil {
+		loginData.Domain = token.Domain
+	}
+	// render auth page
+	t, err := template.ParseFiles("static/login.html")
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load login page"})
 		return
 	}
-	defer loginPage.Close()
-
-	stat, err := loginPage.Stat()
+	err = t.Execute(c.Writer, loginData)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read login page"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to render login page"})
 		return
 	}
 
-	http.ServeContent(c.Writer, c.Request, "login.html", stat.ModTime(), loginPage)
 }
 
 func Login(c *gin.Context) {

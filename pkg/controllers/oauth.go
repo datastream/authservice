@@ -3,6 +3,7 @@ package controllers
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"html/template"
 	"net/http"
 	"net/url"
@@ -36,10 +37,8 @@ func AuthPage(c *gin.Context) {
 	c.Header("Pragma", "no-cache")
 	c.Header("Expires", "0")
 	if _, ok := store.Get("LoggedInUserID"); !ok {
-		store.Set("ReturnUri", c.Request.URL.RequestURI())
-		store.Save()
-		c.Header("Location", "/login")
-		c.JSON(http.StatusFound, gin.H{"message": "Not logged in", "redirect": "/login"})
+		c.Header("Location", fmt.Sprintf("/login?%s", c.Request.URL.RawQuery))
+		c.JSON(http.StatusFound, gin.H{"message": "Not logged in", "redirect": fmt.Sprintf("/login?%s", c.Request.URL.RawQuery)})
 		return
 	}
 	// save raw query to session
@@ -55,7 +54,7 @@ func AuthPage(c *gin.Context) {
 		return
 	}
 
-	// render auth pag
+	// render auth page
 	t, err := template.ParseFiles("static/auth.html")
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load auth page"})
