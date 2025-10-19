@@ -49,7 +49,7 @@ func AuthPage(c *gin.Context) {
 		AuthURL: c.Request.RequestURI,
 		Domain:  c.Request.Host,
 	}
-	token, err := models.FindTokenByClientID(c.Request.Form.Get("client_id"))
+	token, err := models.FindTokenByClientID(c.Query("client_id"))
 	if err != nil {
 		c.Header("Location", "/profile")
 		c.JSON(http.StatusFound, gin.H{"message": "Client not found", "redirect": "/profile"})
