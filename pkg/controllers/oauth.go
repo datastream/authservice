@@ -127,8 +127,6 @@ func (o *OAuthContorller) OAuthHandler(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	store.Delete("AuthForm")
-	store.Save()
 }
 
 func (o *OAuthContorller) TokenHandler(c *gin.Context) {
