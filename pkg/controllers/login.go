@@ -39,7 +39,7 @@ func LoginPage(c *gin.Context) {
 		c.JSON(http.StatusFound, gin.H{"message": "Logged in", "redirect": "/auth"})
 		return
 	}
-	token, err := models.FindTokenByClientID(c.Request.Form.Get("client_id"))
+	token, err := models.FindTokenByClientID(c.Query("client_id"))
 	loginData := LoginPageData{
 		LoginURL: c.Request.RequestURI,
 		Domain:   c.Request.Host,
