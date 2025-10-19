@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"log"
 	"net/http"
 	"net/url"
 	"time"
@@ -67,6 +68,46 @@ func AuthPage(c *gin.Context) {
 	}
 }
 
+func (o *OAuthContorller) Login(c *gin.Context) {
+	var postForm LoginForm
+	if err := c.ShouldBind(&postForm); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	store, err := session.Start(c.Request.Context(), c.Writer, c.Request)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	// check user password
+	user, err := models.FindUserByUsername(postForm.Username)
+	if err != nil || user.CheckPassword(postForm.Password) != nil {
+		log.Print("Invalid credentials for user: ", user.HashedPassword, user.CheckPassword(postForm.Password), err)
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
+		return
+	}
+
+	store.Set("LoggedInUserID", postForm.Username)
+	err = store.Save()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	if uri, ok := store.Get("ReturnUri"); ok {
+		c.Header("Location", uri.(string))
+		c.JSON(http.StatusFound, gin.H{"message": "Login successful", "redirect": uri.(string)})
+		return
+	}
+	// code exchage flow
+	err = o.Srv.HandleAuthorizeRequest(c.Writer, c.Request)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.Header("Location", "/profile")
+	c.JSON(http.StatusFound, gin.H{"message": "Login successful", "redirect": "/profile"})
+}
 func (o *OAuthContorller) OAuthHandler(c *gin.Context) {
 	store, err := session.Start(c.Request.Context(), c.Writer, c.Request)
 	if err != nil {
