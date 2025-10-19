@@ -82,7 +82,7 @@
 
     <div class="auth-container">
         <h1>Authorize</h1>
-        <p>The client would like to login {{define "Domain"}}.</p>
+        <p>The client would like to login {{ . }}.</p>
         <form action="/oauth/authorize" method="POST">
             <button type="submit" class="btn">Allow</button>
         </form>

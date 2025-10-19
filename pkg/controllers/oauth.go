@@ -55,20 +55,17 @@ func AuthPage(c *gin.Context) {
 		return
 	}
 
-	// render auth page
-	t, err := template.New("auth").ParseFiles("static/auth.html")
+	// render auth pag
+	t, err := template.ParseFiles("static/auth.html")
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load auth page"})
 		return
 	}
-	err = t.ExecuteTemplate(c.Writer, "Domain", token.Domain)
+	err = t.Execute(c.Writer, token.Domain)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to render auth page"})
 		return
 	}
-	// render auth page
-	store.Delete("ReturnUri")
-	store.Save()
 }
 
 func (o *OAuthContorller) OAuthHandler(c *gin.Context) {
