@@ -166,5 +166,10 @@ func (o *OAuthContorller) Profile(c *gin.Context) {
 		c.JSON(http.StatusFound, gin.H{"message": "Not logged in", "redirect": "/login"})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"user": userID})
+	user, err := models.FindUserByUsername(userID.(string))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch user profile"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"user": userID, "email": user.Email})
 }

@@ -6,9 +6,11 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/datastream/authservice/pkg/models"
 	"github.com/glebarez/sqlite"
+	"github.com/go-oauth2/oauth2/v4"
 	"github.com/go-oauth2/oauth2/v4/errors"
 	"github.com/go-oauth2/oauth2/v4/generates"
 	"github.com/go-oauth2/oauth2/v4/manage"
@@ -128,7 +130,7 @@ func (a *AuthService) SetServerHandlers() {
 	})
 
 	a.Server.SetUserAuthorizationHandler(userAuthorizeHandler)
-
+	a.Server.SetExtensionFieldsHandler(extensionHandler)
 	a.Server.SetInternalErrorHandler(func(err error) (re *errors.Response) {
 		log.Println("Internal Error:", err.Error())
 		return
@@ -155,4 +157,16 @@ func userAuthorizeHandler(w http.ResponseWriter, r *http.Request) (userID string
 
 	userID = uid.(string)
 	return
+}
+func extensionHandler(ti oauth2.TokenInfo) map[string]interface{} {
+	fieldsValue := make(map[string]interface{})
+	scope := ti.GetScope()
+	user, err := models.FindUserByUsername(ti.GetUserID())
+	if strings.Contains(scope, "email") {
+		if err == nil {
+			fieldsValue["email"] = user.Email
+			fieldsValue["user"] = ti.GetUserID()
+		}
+	}
+	return fieldsValue
 }
