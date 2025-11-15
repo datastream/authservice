@@ -151,7 +151,19 @@ func (o *OAuthContorller) TestHandler(c *gin.Context) {
 func (o *OAuthContorller) Profile(c *gin.Context) {
 	token, err := o.Srv.ValidationBearerToken(c.Request)
 	if err == nil && token != nil {
-		c.JSON(http.StatusOK, gin.H{"user": token.GetUserID(), "client": token.GetClientID(), "expires": token.GetAccessCreateAt().Add(token.GetAccessExpiresIn()).String()})
+		user, err := models.FindUserByUsername(token.GetUserID())
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch user profile"})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"sub":     token.GetUserID(),
+			"name":    token.GetUserID(),
+			"login":   token.GetUserID(),
+			"client":  token.GetClientID(),
+			"email":   user.Email,
+			"expires": token.GetAccessCreateAt().Add(token.GetAccessExpiresIn()).String()},
+		)
 		return
 	}
 	store, err := session.Start(context.TODO(), c.Writer, c.Request)
