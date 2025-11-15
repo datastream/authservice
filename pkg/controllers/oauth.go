@@ -166,6 +166,26 @@ func (o *OAuthContorller) Profile(c *gin.Context) {
 		c.JSON(http.StatusFound, gin.H{"message": "Not logged in", "redirect": "/login"})
 		return
 	}
+	c.JSON(http.StatusOK, gin.H{"user": userID})
+}
+func (o *OAuthContorller) ProfileEmails(c *gin.Context) {
+	token, err := o.Srv.ValidationBearerToken(c.Request)
+	if err == nil && token != nil {
+		c.JSON(http.StatusOK, gin.H{"user": token.GetUserID(), "client": token.GetClientID(), "expires": token.GetAccessCreateAt().Add(token.GetAccessExpiresIn()).String()})
+		return
+	}
+	store, err := session.Start(context.TODO(), c.Writer, c.Request)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	userID, ok := store.Get("LoggedInUserID")
+	if !ok {
+		c.Header("Location", "/login")
+		c.JSON(http.StatusFound, gin.H{"message": "Not logged in", "redirect": "/login"})
+		return
+	}
 	user, err := models.FindUserByUsername(userID.(string))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch user profile"})

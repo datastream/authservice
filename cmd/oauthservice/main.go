@@ -85,6 +85,7 @@ func main() {
 	r.POST("/login", oauth.Login)
 	r.POST("/oauth/token", oauth.TokenHandler)
 	r.GET("/profile", oauth.Profile)
+	r.GET("/profile/emails", oauth.ProfileEmails)
 	r.GET("/test", oauth.TestHandler)
 
 	r.Run(srv.ListenAddress)
