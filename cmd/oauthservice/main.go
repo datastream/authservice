@@ -78,14 +78,15 @@ func main() {
 	r.GET("/signup", controllers.NewUser)
 	r.POST("/signup", controllers.Signup)
 	r.POST("/authentication", controllers.TokenAuth)
+	r.GET("/.well-known/openid-configuration", controllers.Config)
 
 	oauth := controllers.NewOAuthController(srv.Server)
 	r.GET("/oauth/authorize", controllers.AuthPage)
 	r.POST("/oauth/authorize", oauth.OAuthHandler)
 	r.POST("/login", oauth.Login)
 	r.POST("/oauth/token", oauth.TokenHandler)
-	r.GET("/profile", oauth.Profile)
-	r.GET("/profile/emails", oauth.ProfileEmails)
+	r.GET("/userinfo", oauth.Userinfo)
+	r.GET("/userinfo/emails", oauth.UserinfoEmails)
 	r.GET("/test", oauth.TestHandler)
 
 	r.Run(srv.ListenAddress)

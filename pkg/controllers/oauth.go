@@ -51,8 +51,8 @@ func AuthPage(c *gin.Context) {
 	}
 	token, err := models.FindTokenByClientID(c.Query("client_id"))
 	if err != nil {
-		c.Header("Location", "/profile")
-		c.JSON(http.StatusFound, gin.H{"message": "Client not found", "redirect": "/profile"})
+		c.Header("Location", "/userinfo")
+		c.JSON(http.StatusFound, gin.H{"message": "Client not found", "redirect": "/userinfo"})
 		return
 	}
 	authPageData.Domain = token.Domain
@@ -104,9 +104,9 @@ func (o *OAuthContorller) Login(c *gin.Context) {
 		}
 		return
 	}
-	// redirect to /profile
-	c.Header("Location", "/profile")
-	c.JSON(http.StatusFound, gin.H{"message": "Login successful", "redirect": "/profile"})
+	// redirect to /userinfo
+	c.Header("Location", "/userinfo")
+	c.JSON(http.StatusFound, gin.H{"message": "Login successful", "redirect": "/userinfo"})
 }
 func (o *OAuthContorller) OAuthHandler(c *gin.Context) {
 	store, err := session.Start(c.Request.Context(), c.Writer, c.Request)
@@ -148,7 +148,7 @@ func (o *OAuthContorller) TestHandler(c *gin.Context) {
 }
 
 // Profile shows the profile page
-func (o *OAuthContorller) Profile(c *gin.Context) {
+func (o *OAuthContorller) Userinfo(c *gin.Context) {
 	token, err := o.Srv.ValidationBearerToken(c.Request)
 	if err == nil && token != nil {
 		user, err := models.FindUserByUsername(token.GetUserID())
@@ -188,7 +188,7 @@ type ProfileEmail struct {
 }
 
 // ProfileEmails shows the profile email endpoint
-func (o *OAuthContorller) ProfileEmails(c *gin.Context) {
+func (o *OAuthContorller) UserinfoEmails(c *gin.Context) {
 	token, err := o.Srv.ValidationBearerToken(c.Request)
 	if err != nil {
 		c.JSON(http.StatusNotAcceptable, gin.H{"error": err.Error()})

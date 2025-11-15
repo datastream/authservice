@@ -35,7 +35,7 @@ func LoginPage(c *gin.Context) {
 		return
 	}
 	if _, ok := store.Get("LoggedInUserID"); ok {
-		c.Header("Location", "/profile")
+		c.Header("Location", "/userinfo")
 		c.JSON(http.StatusFound, gin.H{"message": "Logged in", "redirect": "/auth"})
 		return
 	}
@@ -216,4 +216,20 @@ func decrypt(ciphertext []byte, key []byte) ([]byte, error) {
 	}
 
 	return plaintext, nil
+}
+
+// openid configuration endpoint
+func Config(c *gin.Context) {
+	issuer := fmt.Sprintf("%s://%s", c.Request.URL.Scheme, c.Request.Host)
+	config := map[string]interface{}{
+		"issuer":                                issuer,
+		"authorization_endpoint":                issuer + "/oauth2/authorize",
+		"token_endpoint":                        issuer + "/oauth2/token",
+		"userinfo_endpoint":                     issuer + "/userinfo",
+		"jwks_uri":                              issuer + "/.well-known/jwks.json",
+		"response_types_supported":              []string{"code", "token", "id_token", "code token", "code id_token", "token id_token", "code token id_token"},
+		"subject_types_supported":               []string{"public"},
+		"id_token_signing_alg_values_supported": []string{"RS256"},
+	}
+	c.JSON(http.StatusOK, config)
 }
