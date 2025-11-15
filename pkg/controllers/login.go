@@ -220,7 +220,14 @@ func decrypt(ciphertext []byte, key []byte) ([]byte, error) {
 
 // openid configuration endpoint
 func Config(c *gin.Context) {
-	issuer := fmt.Sprintf("%s://%s", c.Request.URL.Scheme, c.Request.Host)
+	schema := c.Request.Header.Get("X-Forwarded-Proto")
+	if schema == "" {
+		schema = c.Request.URL.Scheme
+	}
+	if schema == "" {
+		schema = "http"
+	}
+	issuer := fmt.Sprintf("%s://%s", schema, c.Request.Host)
 	config := map[string]interface{}{
 		"issuer":                                issuer,
 		"authorization_endpoint":                issuer + "/oauth/authorize",
