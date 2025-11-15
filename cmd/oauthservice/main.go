@@ -79,6 +79,7 @@ func main() {
 	r.POST("/signup", controllers.Signup)
 	r.POST("/authentication", controllers.TokenAuth)
 	r.GET("/.well-known/openid-configuration", controllers.Config)
+	r.OPTIONS("/.well-known/openid-configuration", controllers.Config)
 
 	oauth := controllers.NewOAuthController(srv.Server)
 	r.GET("/oauth/authorize", controllers.AuthPage)
