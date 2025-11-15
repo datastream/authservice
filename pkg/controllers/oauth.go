@@ -168,6 +168,14 @@ func (o *OAuthContorller) Profile(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{"user": userID})
 }
+
+type ProfileEmail struct {
+	Email    string `json:"email"`
+	Primary  bool   `json:"primary"`
+	Verified bool   `json:"verified"`
+}
+
+// ProfileEmails shows the profile email endpoint
 func (o *OAuthContorller) ProfileEmails(c *gin.Context) {
 	token, err := o.Srv.ValidationBearerToken(c.Request)
 	if err != nil {
@@ -180,12 +188,13 @@ func (o *OAuthContorller) ProfileEmails(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch user profile"})
 			return
 		}
-		c.JSON(http.StatusOK, gin.H{
-			"user":    token.GetUserID(),
-			"client":  token.GetClientID(),
-			"email":   user.Email,
-			"expires": token.GetAccessCreateAt().Add(token.GetAccessExpiresIn()).String()},
-		)
+		email := ProfileEmail{
+			Email:    user.Email,
+			Primary:  true,
+			Verified: true,
+		}
+		emails := []ProfileEmail{email}
+		c.JSON(http.StatusOK, emails)
 		return
 	}
 	store, err := session.Start(context.TODO(), c.Writer, c.Request)
@@ -205,6 +214,11 @@ func (o *OAuthContorller) ProfileEmails(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch user profile"})
 		return
 	}
-
-	c.JSON(http.StatusOK, gin.H{"user": userID, "email": user.Email})
+	email := ProfileEmail{
+		Email:    user.Email,
+		Primary:  true,
+		Verified: true,
+	}
+	emails := []ProfileEmail{email}
+	c.JSON(http.StatusOK, emails)
 }
