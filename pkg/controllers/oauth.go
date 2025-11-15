@@ -170,8 +170,22 @@ func (o *OAuthContorller) Profile(c *gin.Context) {
 }
 func (o *OAuthContorller) ProfileEmails(c *gin.Context) {
 	token, err := o.Srv.ValidationBearerToken(c.Request)
-	if err == nil && token != nil {
-		c.JSON(http.StatusOK, gin.H{"user": token.GetUserID(), "client": token.GetClientID(), "expires": token.GetAccessCreateAt().Add(token.GetAccessExpiresIn()).String()})
+	if err != nil {
+		c.JSON(http.StatusNotAcceptable, gin.H{"error": err.Error()})
+		return
+	}
+	if token != nil {
+		user, err := models.FindUserByUsername(token.GetUserID())
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch user profile"})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"user":    token.GetUserID(),
+			"client":  token.GetClientID(),
+			"email":   user.Email,
+			"expires": token.GetAccessCreateAt().Add(token.GetAccessExpiresIn()).String()},
+		)
 		return
 	}
 	store, err := session.Start(context.TODO(), c.Writer, c.Request)
@@ -179,17 +193,18 @@ func (o *OAuthContorller) ProfileEmails(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-
 	userID, ok := store.Get("LoggedInUserID")
 	if !ok {
 		c.Header("Location", "/login")
 		c.JSON(http.StatusFound, gin.H{"message": "Not logged in", "redirect": "/login"})
 		return
 	}
+	// Fetch user profile from username
 	user, err := models.FindUserByUsername(userID.(string))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch user profile"})
 		return
 	}
+
 	c.JSON(http.StatusOK, gin.H{"user": userID, "email": user.Email})
 }
