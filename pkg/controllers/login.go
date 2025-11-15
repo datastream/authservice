@@ -223,8 +223,8 @@ func Config(c *gin.Context) {
 	issuer := fmt.Sprintf("%s://%s", c.Request.URL.Scheme, c.Request.Host)
 	config := map[string]interface{}{
 		"issuer":                                issuer,
-		"authorization_endpoint":                issuer + "/oauth2/authorize",
-		"token_endpoint":                        issuer + "/oauth2/token",
+		"authorization_endpoint":                issuer + "/oauth/authorize",
+		"token_endpoint":                        issuer + "/oauth/token",
 		"userinfo_endpoint":                     issuer + "/userinfo",
 		"jwks_uri":                              issuer + "/.well-known/jwks.json",
 		"response_types_supported":              []string{"code", "token", "id_token", "code token", "code id_token", "token id_token", "code token id_token"},
