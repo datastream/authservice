@@ -38,8 +38,16 @@ type AuthService struct {
 	// cookie ID
 	SessionName string   `yaml:"sessionName"`
 	Origins     []string `yaml:"origins"`
-
+	// OpenFGA
+	OpenFgaConfig `yaml:"openFgaConfig"`
+	// oauth2 server
 	Server *server.Server
+}
+type OpenFgaConfig struct {
+	URL     string `yaml:"url"`
+	StoreID string `yaml:"storeID"`
+	ModelID string `yaml:"modelID"` //model for authorization
+	Token   string `yaml:"token"`
 }
 
 // read from config.yaml

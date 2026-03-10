@@ -88,6 +88,29 @@ func main() {
 	r.GET("/userinfo", oauth.Userinfo)
 	r.GET("/userinfo/emails", oauth.UserinfoEmails)
 	r.GET("/test", oauth.TestHandler)
+	// ------------------------------------------------------------------
+	//  OpenFGA endpoints
+	// ------------------------------------------------------------------
+	fgaCtrl, err := controllers.NewFGAController(srv.OpenFgaConfig)
+	if err != nil {
+		log.Fatalf("Failed to initialize FGA controller: %v", err)
+	}
+	authorized := r.Group("/api/v1")
+	authorized.Use(controllers.AuthMiddleware())
+	authorized.Use(fgaCtrl.FGAMiddleware())
+	// one store, multiple authorization models.
+	// manage FGA authorization models
+	authorized.POST("/fga/models", fgaCtrl.Models)
+	authorized.GET("/fga/models/:id", fgaCtrl.GetModel)
+	// ------------------------------------------------------------------
+	// evaluate FGA permissions
+	modelauth := r.Group("/api/v1")
+	modelauth.Use(fgaCtrl.FGASepMiddleware())
+	modelauth.POST("/fga/models/:id/evaluate", fgaCtrl.Evaluate)
+	// manage FGA tuples
+	modelauth.POST("/fga/models/:id/tuples", fgaCtrl.Tuples)
+	modelauth.DELETE("/fga/models/:id/tuples", fgaCtrl.DeleteTuples)
+	// ------------------------------------------------------------------
 
 	r.Run(srv.ListenAddress)
 }

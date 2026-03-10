@@ -1,7 +1,7 @@
 package controllers
 
 import (
-	"context"
+	"github.com/datastream/authservice/pkg/middleware"
 	"crypto/aes"
 	"crypto/cipher"
 	"errors"
@@ -29,12 +29,12 @@ type LoginPageData struct {
 
 // login page don't need to handle uri query params
 func LoginPage(c *gin.Context) {
-	store, err := session.Start(context.TODO(), c.Writer, c.Request)
+	_, ok, err := middleware.GetLoggedInUserID(c)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	if _, ok := store.Get("LoggedInUserID"); ok {
+	if ok { // user is logged in
 		c.Header("Location", "/userinfo")
 		c.JSON(http.StatusFound, gin.H{"message": "Logged in", "redirect": "/auth"})
 		return
@@ -120,6 +120,75 @@ func TokenAuth(c *gin.Context) {
 	c.JSON(http.StatusBadRequest, gin.H{"Status": "auth type error"})
 }
 
+// auth middleware
+func AuthMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var (
+			userName string
+			subject  string
+		)
+		authHead := c.Request.Header.Get("Authorization")
+		if authHead == "" {
+			// handle cookie auth
+			store, err := session.Start(c.Request.Context(), c.Writer, c.Request)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				c.Abort()
+				return
+			}
+
+			// Get the subject from the session
+			user, ok := store.Get("LoggedInUserID")
+			if !ok || user == "" {
+				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Not authenticated"})
+				return
+			}
+			subject = fmt.Sprintf("users:%s", user)
+			userName = user.(string)
+		} else {
+			// handle token auth
+			tk, err := checkAWSHMAC(c.Request)
+			if err != nil {
+				log.Println("[Err] AWS HMAC verification failed:", err)
+				c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"Status": "bad AWS4-HMAC-SHA256"})
+				return
+			}
+			subject = fmt.Sprintf("tokens:%s", tk.AccessKey)
+			userName = tk.UserName
+		}
+		c.Set("UserName", userName)
+		c.Set("Subject", subject)
+	}
+}
+func checkAWSHMAC(r *http.Request) (*models.AccessToken, error) {
+	// Extract the signature, auth string, and signed headers from the request
+	s, authString, signedHeaders, err := sign4.GetSignature(r)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get signature: %w", err)
+	}
+
+	// Find the token by AccessKey
+	var tk models.AccessToken
+	if err := tk.FindByAccessKey(s.AccessKey); err != nil {
+		return nil, fmt.Errorf("failed to find token by access key: %w", err)
+	}
+
+	// Set the secret key from the token
+	s.SecretKey = tk.SecretKey
+
+	// Sign the request with the extracted signature
+	if err := s.SignRequest(r, signedHeaders); err != nil {
+		return nil, fmt.Errorf("failed to sign request: %w", err)
+	}
+
+	// Validate the Authorization header
+	if authString != r.Header.Get("Authorization") {
+		r.Header.Set("Authorization", authString)
+		return nil, errors.New("authorization mismatch: bad request")
+	}
+
+	return &tk, nil
+}
 func handleTokenAuth(c *gin.Context, req TokenAuthRequest) {
 	tk, err := doAuthToken(req)
 	if err != nil {
