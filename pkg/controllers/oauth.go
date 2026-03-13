@@ -1,17 +1,17 @@
 package controllers
 
 import (
-    "fmt"
-    "html/template"
-    "log"
-    "net/http"
-    "time"
+	"fmt"
+	"html/template"
+	"log"
+	"net/http"
+	"time"
 
-    "github.com/datastream/authservice/pkg/models"
-    "github.com/gin-gonic/gin"
-    "github.com/go-oauth2/oauth2/v4/server"
-    "github.com/go-session/session/v3"
-    "github.com/datastream/authservice/pkg/middleware"
+	"github.com/datastream/authservice/pkg/middleware"
+	"github.com/datastream/authservice/pkg/models"
+	"github.com/gin-gonic/gin"
+	"github.com/go-oauth2/oauth2/v4/server"
+	"github.com/go-session/session/v3"
 )
 
 // OAuthHandler handles the /oauth/auth endpoint
@@ -84,7 +84,7 @@ func (o *OAuthController) Login(c *gin.Context) {
     // check user password
     user, err := models.FindUserByUsername(postForm.Username)
     if err != nil || user.CheckPassword(postForm.Password) != nil {
-        log.Print("Invalid credentials for user: ", user.HashedPassword, user.CheckPassword(postForm.Password), err)
+        log.Println("Invalid credentials for user:", postForm.Username, err)
         c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
         return
     }
@@ -165,18 +165,8 @@ func (o *OAuthController) Userinfo(c *gin.Context) {
         })
         return
     }
-    // Retrieve user ID via middleware
-    userID, ok, err := middleware.GetLoggedInUserID(c)
-    if err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-        return
-    }
-    if !ok {
-        c.Header("Location", "/login")
-        c.JSON(http.StatusFound, gin.H{"message": "Not logged in", "redirect": "/login"})
-        return
-    }
-    c.JSON(http.StatusOK, gin.H{"user": userID})
+    // No valid token and no session fallback: unauthorized
+    c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid or missing access token"})
 }
 
 type ProfileEmail struct {
@@ -189,7 +179,7 @@ type ProfileEmail struct {
 func (o *OAuthController) UserinfoEmails(c *gin.Context) {
     token, err := o.Srv.ValidationBearerToken(c.Request)
     if err != nil {
-        c.JSON(http.StatusNotAcceptable, gin.H{"error": err.Error()})
+        c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
         return
     }
     if token != nil {
@@ -202,25 +192,8 @@ func (o *OAuthController) UserinfoEmails(c *gin.Context) {
         c.JSON(http.StatusOK, []ProfileEmail{email})
         return
     }
-    // Retrieve user ID via middleware
-    userID, ok, err := middleware.GetLoggedInUserID(c)
-    if err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-        return
-    }
-    if !ok {
-        c.Header("Location", "/login")
-        c.JSON(http.StatusFound, gin.H{"message": "Not logged in", "redirect": "/login"})
-        return
-    }
-    // Fetch user profile from username
-    user, err := models.FindUserByUsername(userID)
-    if err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch user profile"})
-        return
-    }
-    email := ProfileEmail{Email: user.Email, Primary: true, Verified: true}
-    c.JSON(http.StatusOK, []ProfileEmail{email})
+    // No valid token and no session fallback: unauthorized
+    c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid or missing access token"})
 }
 
 func (o *OAuthController) OAuthMiddleware() gin.HandlerFunc {
