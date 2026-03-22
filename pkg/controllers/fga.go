@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net/http"
+	"strings"
 
 	"github.com/datastream/authservice/pkg/core"
 	"github.com/gin-gonic/gin"
@@ -16,6 +18,56 @@ type FGAController struct {
 	FgaClient            *client.OpenFgaClient
 	AuthorizationModelId string
 	// Add fields as necessary
+}
+
+// Constants for FGA relations and objects.
+const (
+	relAccess      = "access"
+	relOwner       = "owner"
+	objAuthService = "resource:authservice"
+	objModelFmt    = "model:%s"
+)
+
+// abort logs an error (if any) and aborts the Gin request with a JSON error payload.
+func (fga *FGAController) abort(c *gin.Context, status int, msg string, err error) {
+	if err != nil {
+		log.Printf("%s: %v", msg, err)
+	} else {
+		log.Println(msg)
+	}
+	c.AbortWithStatusJSON(status, gin.H{"error": msg})
+}
+
+// permissionMiddleware returns a Gin middleware that checks an FGA permission.
+// rel is the relation (e.g., "access" or "owner").
+// objTemplate may contain a "%s" placeholder that will be filled from the URL param "id".
+func (fga *FGAController) permissionMiddleware(rel, objTemplate string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		subject := c.GetString("Subject")
+		if subject == "" {
+			fga.abort(c, http.StatusUnauthorized, "Missing authentication subject", nil)
+			return
+		}
+		obj := objTemplate
+		if strings.Contains(objTemplate, "%s") {
+			id := c.Param("id")
+			if id == "" {
+				fga.abort(c, http.StatusBadRequest, "model ID missing in URL", nil)
+				return
+			}
+			obj = fmt.Sprintf(objTemplate, id)
+		}
+		allowed, err := fga.checkPermission(c.Request.Context(), subject, rel, obj)
+		if err != nil {
+			fga.abort(c, http.StatusInternalServerError, "FGA check error", err)
+			return
+		}
+		if !allowed {
+			fga.abort(c, http.StatusForbidden, "Forbidden", nil)
+			return
+		}
+		c.Next()
+	}
 }
 
 func NewFGAController(config core.OpenFgaConfig) (*FGAController, error) {

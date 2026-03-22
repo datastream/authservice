@@ -1,11 +1,11 @@
 package controllers
 
 import (
-	"github.com/datastream/authservice/pkg/middleware"
 	"crypto/aes"
 	"crypto/cipher"
 	"errors"
 	"fmt"
+	"github.com/datastream/authservice/pkg/middleware"
 	"html/template"
 	"log"
 	"net/http"
