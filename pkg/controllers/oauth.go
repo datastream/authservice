@@ -34,7 +34,7 @@ func AuthPage(c *gin.Context) {
 	// Retrieve login status via middleware (userID not needed here)
 	_, ok, err := middleware.GetLoggedInUserID(c)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		middleware.Fail(c, http.StatusInternalServerError, err.Error())
 		return
 	}
 	// disable http cache
@@ -78,7 +78,7 @@ func (o *OAuthController) Login(c *gin.Context) {
 	}
 	store, err := session.Start(c.Request.Context(), c.Writer, c.Request)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		middleware.Fail(c, http.StatusInternalServerError, err.Error())
 		return
 	}
 	// check user password
@@ -91,7 +91,7 @@ func (o *OAuthController) Login(c *gin.Context) {
 
 	store.Set("LoggedInUserID", postForm.Username)
 	if err = store.Save(); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		middleware.Fail(c, http.StatusInternalServerError, err.Error())
 		return
 	}
 	// handle additional oauth flow
@@ -102,16 +102,15 @@ func (o *OAuthController) Login(c *gin.Context) {
 		}
 		return
 	}
-	// redirect to /userinfo
-	c.Header("Location", "/userinfo")
-	c.JSON(http.StatusFound, gin.H{"message": "Login successful", "redirect": "/userinfo"})
+	// respond with success and include redirect path
+	c.JSON(http.StatusOK, gin.H{"message": "Login successful", "redirect": "/userinfo"})
 }
 
 func (o *OAuthController) OAuthHandler(c *gin.Context) {
 	// Retrieve login status via middleware (userID not needed here)
 	_, ok, err := middleware.GetLoggedInUserID(c)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		middleware.Fail(c, http.StatusInternalServerError, err.Error())
 		return
 	}
 	if !ok {
@@ -128,7 +127,7 @@ func (o *OAuthController) OAuthHandler(c *gin.Context) {
 
 func (o *OAuthController) TokenHandler(c *gin.Context) {
 	if err := o.Srv.HandleTokenRequest(c.Writer, c.Request); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		middleware.Fail(c, http.StatusInternalServerError, err.Error())
 	}
 }
 

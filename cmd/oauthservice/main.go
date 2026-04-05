@@ -75,6 +75,7 @@ func main() {
 	r.GET("/manager", controllers.Managerpage)
 	r.GET("/tokens", controllers.TokensList)
 	r.POST("/tokens", controllers.ClientTokensCreate)
+	r.DELETE("/tokens/:id", controllers.TokenRevoke)
 	r.GET("/signup", controllers.NewUser)
 	r.POST("/signup", controllers.Signup)
 	r.POST("/authentication", controllers.TokenAuth)

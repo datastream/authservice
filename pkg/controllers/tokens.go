@@ -38,9 +38,9 @@ func Managerpage(c *gin.Context) {
 
 type TokenForm struct {
 	Domain   string `form:"domain" json:"domain" binding:"required"`
-	Public   bool   `form:"public" json:"public" binding:"required"`
+	Public   bool   `form:"public" json:"public"`
 	Describe string `form:"describe" json:"describe"`
-	UserID   string `form:"userId" json:"userID"`
+	UserID   string `form:"userId" json:"userId"`
 }
 
 func ClientTokensCreate(c *gin.Context) {
@@ -56,7 +56,7 @@ func ClientTokensCreate(c *gin.Context) {
 		return
 	}
 	var postForm TokenForm
-	if err := c.ShouldBind(&postForm); err != nil {
+	if err := c.BindJSON(&postForm); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
@@ -100,4 +100,38 @@ func TokensList(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"tokens": tokens,
 	})
+}
+
+// TokenRevoke deletes a token owned by the logged-in user
+func TokenRevoke(c *gin.Context) {
+    store, err := session.Start(context.TODO(), c.Writer, c.Request)
+    if err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+        return
+    }
+    user, ok := store.Get("LoggedInUserID")
+    if !ok {
+        c.Header("Location", "/login")
+        c.JSON(http.StatusFound, gin.H{"message": "Not logged in", "redirect": "/login"})
+        return
+    }
+    clientID := c.Param("id")
+    if clientID == "" {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "Missing token ID"})
+        return
+    }
+    token, err := models.FindTokenByClientID(clientID)
+    if err != nil {
+        c.JSON(http.StatusNotFound, gin.H{"error": "Token not found"})
+        return
+    }
+    if token.UserID != user.(string) {
+        c.JSON(http.StatusForbidden, gin.H{"error": "Not authorized to delete this token"})
+        return
+    }
+    if err := token.Delete(); err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete token"})
+        return
+    }
+    c.JSON(http.StatusOK, gin.H{"message": "Token revoked successfully"})
 }

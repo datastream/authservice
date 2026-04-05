@@ -1,0 +1,11 @@
+listenAddress: ":9096"
+domain: "http://localhost"
+logFile: "authserver_test.log"
+dbFile: "authserver_test.db"
+databaseType: sqlite
+databaseURI: test_authserver.db
+sessionName: "test_session"
+redis: ""
+redisPassword: ""
+redisDB: 0
+origins: []
