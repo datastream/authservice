@@ -5,7 +5,6 @@ import (
 	"html/template"
 	"log"
 	"net/http"
-	"time"
 
 	"github.com/datastream/authservice/pkg/middleware"
 	"github.com/datastream/authservice/pkg/models"
@@ -94,31 +93,28 @@ func (o *OAuthController) Login(c *gin.Context) {
 		middleware.Fail(c, http.StatusInternalServerError, err.Error())
 		return
 	}
-	// handle additional oauth flow
-	if len(c.Query("client_id")) > 0 {
-		// code exchange flow
-		if err = o.Srv.HandleAuthorizeRequest(c.Writer, c.Request); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		}
-		return
+
+	if query := c.Request.URL.RawQuery; len(query) > 0 {
+		c.JSON(http.StatusOK, gin.H{
+			"message":  "Login successful",
+			"redirect": "/oauth/authorize?" + query,
+		})
+	} else {
+		c.JSON(http.StatusOK, gin.H{"message": "Login successful", "redirect": "/userinfo"})
 	}
-	// respond with success and include redirect path
-	c.JSON(http.StatusOK, gin.H{"message": "Login successful", "redirect": "/userinfo"})
 }
 
 func (o *OAuthController) OAuthHandler(c *gin.Context) {
-	// Retrieve login status via middleware (userID not needed here)
 	_, ok, err := middleware.GetLoggedInUserID(c)
 	if err != nil {
 		middleware.Fail(c, http.StatusInternalServerError, err.Error())
 		return
 	}
 	if !ok {
-		c.Header("Location", "/login")
-		c.JSON(http.StatusFound, gin.H{"message": "Not logged in", "redirect": "/login"})
+		redirectURL := fmt.Sprintf("/login?%s", c.Request.URL.RawQuery)
+		c.Redirect(http.StatusFound, redirectURL)
 		return
 	}
-	// Proceed with OAuth authorization request
 	if err = o.Srv.HandleAuthorizeRequest(c.Writer, c.Request); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -134,14 +130,22 @@ func (o *OAuthController) TokenHandler(c *gin.Context) {
 func (o *OAuthController) TestHandler(c *gin.Context) {
 	token, err := o.Srv.ValidationBearerToken(c.Request)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+		// RFC 7662 §2.1: introspection endpoint always returns 200
+		c.JSON(http.StatusOK, gin.H{
+			"active": false,
+		})
 		return
 	}
+
+	createdAt := token.GetAccessCreateAt()
+	expiresIn := token.GetAccessExpiresIn()
 	c.JSON(http.StatusOK, gin.H{
-		"client_id":  token.GetClientID(),
-		"user_id":    token.GetUserID(),
-		"expires_in": int64(time.Until(token.GetAccessCreateAt().Add(token.GetAccessExpiresIn())).Seconds()),
-		"scope":      token.GetScope(),
+		"active":    true,
+		"scope":     token.GetScope(),
+		"client_id": token.GetClientID(),
+		"user":      token.GetUserID(),
+		"iat":       createdAt.Unix(),
+		"exp":       createdAt.Add(expiresIn).Unix(),
 	})
 }
 
