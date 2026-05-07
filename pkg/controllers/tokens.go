@@ -1,39 +1,23 @@
 package controllers
 
 import (
-	"context"
 	"net/http"
 
+	"github.com/datastream/authservice/pkg/middleware"
 	"github.com/datastream/authservice/pkg/models"
 	"github.com/gin-gonic/gin"
-	"github.com/go-session/session/v3"
 )
 
-// ClientTokensShow shows the tokens page
+// Managerpage shows the tokens page
 func Managerpage(c *gin.Context) {
-	store, err := session.Start(context.TODO(), c.Writer, c.Request)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	userID := middleware.RequireLogin(c)
+	if userID == "" {
 		return
 	}
-
-	if _, ok := store.Get("LoggedInUserID"); !ok {
-		c.Header("Location", "/login")
-		c.JSON(http.StatusFound, gin.H{"message": "Not logged in", "redirect": "/login"})
-		return
-	}
-	tokenPage, err := http.Dir("static").Open("tokens.html")
-	if err != nil {
+	if err := middleware.ServeStaticHTML(c, "tokens.html"); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load tokens page"})
 		return
 	}
-	defer tokenPage.Close()
-	stat, err := tokenPage.Stat()
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read tokens page"})
-		return
-	}
-	http.ServeContent(c.Writer, c.Request, "tokens.html", stat.ModTime(), tokenPage)
 }
 
 type TokenForm struct {
@@ -44,15 +28,8 @@ type TokenForm struct {
 }
 
 func ClientTokensCreate(c *gin.Context) {
-	store, err := session.Start(context.TODO(), c.Writer, c.Request)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-	user, ok := store.Get("LoggedInUserID")
-	if !ok {
-		c.Header("Location", "/login")
-		c.JSON(http.StatusFound, gin.H{"message": "Not logged in", "redirect": "/login"})
+	userID := middleware.RequireLogin(c)
+	if userID == "" {
 		return
 	}
 	var postForm TokenForm
@@ -61,7 +38,7 @@ func ClientTokensCreate(c *gin.Context) {
 		return
 	}
 	if postForm.UserID == "" {
-		postForm.UserID = user.(string)
+		postForm.UserID = userID
 	}
 	token := models.Token{
 		UserID:   postForm.UserID,
@@ -80,19 +57,11 @@ func ClientTokensCreate(c *gin.Context) {
 	})
 }
 func TokensList(c *gin.Context) {
-	store, err := session.Start(context.TODO(), c.Writer, c.Request)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	userID := middleware.RequireLogin(c)
+	if userID == "" {
 		return
 	}
-
-	user, ok := store.Get("LoggedInUserID")
-	if !ok {
-		c.Header("Location", "/login")
-		c.JSON(http.StatusFound, gin.H{"message": "Not logged in", "redirect": "/login"})
-		return
-	}
-	tokens, err := models.FindTokensByUserID(user.(string))
+	tokens, err := models.FindTokensByUserID(userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch tokens"})
 		return
@@ -104,34 +73,27 @@ func TokensList(c *gin.Context) {
 
 // TokenRevoke deletes a token owned by the logged-in user
 func TokenRevoke(c *gin.Context) {
-    store, err := session.Start(context.TODO(), c.Writer, c.Request)
-    if err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-        return
-    }
-    user, ok := store.Get("LoggedInUserID")
-    if !ok {
-        c.Header("Location", "/login")
-        c.JSON(http.StatusFound, gin.H{"message": "Not logged in", "redirect": "/login"})
-        return
-    }
-    clientID := c.Param("id")
-    if clientID == "" {
-        c.JSON(http.StatusBadRequest, gin.H{"error": "Missing token ID"})
-        return
-    }
-    token, err := models.FindTokenByClientID(clientID)
-    if err != nil {
-        c.JSON(http.StatusNotFound, gin.H{"error": "Token not found"})
-        return
-    }
-    if token.UserID != user.(string) {
-        c.JSON(http.StatusForbidden, gin.H{"error": "Not authorized to delete this token"})
-        return
-    }
-    if err := token.Delete(); err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete token"})
-        return
-    }
-    c.JSON(http.StatusOK, gin.H{"message": "Token revoked successfully"})
+	userID := middleware.RequireLogin(c)
+	if userID == "" {
+		return
+	}
+	clientID := c.Param("id")
+	if clientID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing token ID"})
+		return
+	}
+	token, err := models.FindTokenByClientID(clientID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Token not found"})
+		return
+	}
+	if token.UserID != userID {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Not authorized to delete this token"})
+		return
+	}
+	if err := token.Delete(); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete token"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Token revoked successfully"})
 }

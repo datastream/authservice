@@ -1,6 +1,10 @@
+// Package middleware provides Gin middleware and utility helpers for session
+// management, JSON error responses, and static HTML serving.
 package middleware
 
 import (
+	"net/http"
+
 	"github.com/gin-gonic/gin"
 	"github.com/go-session/session/v3"
 	"log"
@@ -27,4 +31,30 @@ func GetLoggedInUserID(c *gin.Context) (string, bool, error) {
 		return "", false, nil
 	}
 	return userID, true, nil
+}
+
+// RequireLogin starts a session, extracts the logged-in user ID, and aborts
+// the handler with a 302 redirect to /login if the user is not authenticated.
+// It returns the user ID string on success.
+func RequireLogin(c *gin.Context) string {
+	store, err := session.Start(c.Request.Context(), c.Writer, c.Request)
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return ""
+	}
+
+	userIDRaw, ok := store.Get("LoggedInUserID")
+	if !ok {
+		c.Header("Location", "/login")
+		c.AbortWithStatusJSON(http.StatusFound, gin.H{"message": "Not logged in", "redirect": "/login"})
+		return ""
+	}
+
+	userID, ok := userIDRaw.(string)
+	if !ok {
+		c.Header("Location", "/login")
+		c.AbortWithStatusJSON(http.StatusFound, gin.H{"message": "Not logged in", "redirect": "/login"})
+		return ""
+	}
+	return userID
 }

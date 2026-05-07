@@ -1,7 +1,8 @@
+// Package controllers provides HTTP handlers for the OAuth service using the Gin framework.
+// It includes controllers for login, OAuth authorization, token management, and FGA integration.
 package controllers
 
 import (
-	"fmt"
 	"html/template"
 	"log"
 	"net/http"
@@ -30,21 +31,12 @@ type AuthPageData struct {
 // GET /oauth/authorize (unchanged)
 // just a simple auth page to create a post form to authorize
 func AuthPage(c *gin.Context) {
-	// Retrieve login status via middleware (userID not needed here)
-	_, ok, err := middleware.GetLoggedInUserID(c)
-	if err != nil {
-		middleware.Fail(c, http.StatusInternalServerError, err.Error())
-		return
-	}
+	middleware.RequireLogin(c)
+	// User already validated by RequireLogin; redirect aborts on failure.
 	// disable http cache
 	c.Header("Cache-Control", "no-cache, no-store, must-revalidate")
 	c.Header("Pragma", "no-cache")
 	c.Header("Expires", "0")
-	if !ok {
-		c.Header("Location", fmt.Sprintf("/login?%s", c.Request.URL.RawQuery))
-		c.JSON(http.StatusFound, gin.H{"message": "Not logged in", "redirect": fmt.Sprintf("/login?%s", c.Request.URL.RawQuery)})
-		return
-	}
 	authPageData := AuthPageData{
 		AuthURL: c.Request.RequestURI,
 		Domain:  c.Request.Host,
@@ -105,17 +97,9 @@ func (o *OAuthController) Login(c *gin.Context) {
 }
 
 func (o *OAuthController) OAuthHandler(c *gin.Context) {
-	_, ok, err := middleware.GetLoggedInUserID(c)
-	if err != nil {
-		middleware.Fail(c, http.StatusInternalServerError, err.Error())
-		return
-	}
-	if !ok {
-		redirectURL := fmt.Sprintf("/login?%s", c.Request.URL.RawQuery)
-		c.Redirect(http.StatusFound, redirectURL)
-		return
-	}
-	if err = o.Srv.HandleAuthorizeRequest(c.Writer, c.Request); err != nil {
+	middleware.RequireLogin(c)
+	// User already validated by RequireLogin; redirect aborts on failure.
+	if err := o.Srv.HandleAuthorizeRequest(c.Writer, c.Request); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}

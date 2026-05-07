@@ -1,3 +1,6 @@
+// Package models defines the data models used by the auth service.
+// It includes User, Token (OAuth client), and AccessToken (AWS HMAC auth) with
+// GORM-backed persistence.
 package models
 
 import (
@@ -11,7 +14,9 @@ var once sync.Once
 
 var DB *gorm.DB
 
-// Register is a function that registers a function with the database.
+// Register registers the database models with the given GORM instance.
+// It auto-migrates Token and User schemas. This function is safe for
+// concurrent use and only executes once.
 func Register(db *gorm.DB) {
 	once.Do(func() {
 		if db == nil {

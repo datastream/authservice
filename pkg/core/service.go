@@ -1,3 +1,7 @@
+// Package core provides the central AuthService struct that holds configuration,
+// database connection, Redis client, OpenFGA client, and OAuth2 server.
+// It is responsible for loading configuration, initializing the database, and
+// wiring the OAuth2 server with token and client stores.
 package core
 
 import (
@@ -60,9 +64,6 @@ func LoadConfig(name string) (*AuthService, error) {
 	err = yaml.Unmarshal(config, &conf)
 	if err != nil {
 		return nil, err
-	}
-	if conf.RedisDB == 0 {
-		conf.RedisDB = 0
 	}
 	if conf.RedisTokenDB == 0 {
 		conf.RedisTokenDB = 1

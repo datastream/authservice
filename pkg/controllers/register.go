@@ -3,6 +3,7 @@ package controllers
 import (
 	"net/http"
 
+	"github.com/datastream/authservice/pkg/middleware"
 	"github.com/datastream/authservice/pkg/models"
 	"github.com/gin-gonic/gin"
 	"github.com/go-session/session/v3"
@@ -14,22 +15,15 @@ type RegisterForm struct {
 	Password string `form:"password" binding:"required"`
 }
 
+// NewUser serves the signup page.
 func NewUser(c *gin.Context) {
-	signupPage, err := http.Dir("static").Open("signup.html")
-	if err != nil {
+	if err := middleware.ServeStaticHTML(c, "signup.html"); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load signup page"})
 		return
 	}
-	defer signupPage.Close()
-
-	stat, err := signupPage.Stat()
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read signup page"})
-		return
-	}
-
-	http.ServeContent(c.Writer, c.Request, "signup.html", stat.ModTime(), signupPage)
 }
+
+// Signup registers a new user and logs them in.
 func Signup(c *gin.Context) {
 	var postForm RegisterForm
 	if err := c.ShouldBind(&postForm); err != nil {
@@ -43,6 +37,7 @@ func Signup(c *gin.Context) {
 	user.GenHashedPassword(postForm.Password)
 	if err := user.Save(); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to register user"})
+		return
 	}
 	store, err := session.Start(c.Request.Context(), c.Writer, c.Request)
 	if err != nil {
@@ -51,8 +46,7 @@ func Signup(c *gin.Context) {
 	}
 
 	store.Set("LoggedInUserID", postForm.Username)
-	err = store.Save()
-	if err != nil {
+	if err = store.Save(); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}

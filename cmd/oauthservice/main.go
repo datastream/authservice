@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"runtime/debug"
 	"time"
@@ -18,7 +19,7 @@ import (
 
 var (
 	confFile      = flag.String("c", "config.json", "security service config file")
-	verison       = flag.Bool("version", false, "print version")
+	version       = flag.Bool("version", false, "print version")
 	VersionString = "unset"
 )
 
@@ -29,7 +30,7 @@ func main() {
 		log.Fatalf("LoadConfig err: %v", err)
 	}
 	// Print version and exit if requested
-	if *verison {
+	if *version {
 		printVersion()
 		return
 	}
@@ -54,7 +55,7 @@ func main() {
 	}))
 	svc := r.Group("/")
 	svc.GET("/healthz", func(c *gin.Context) {
-		c.JSON(200, gin.H{
+		c.JSON(http.StatusOK, gin.H{
 			"status": "ok",
 		})
 	})
