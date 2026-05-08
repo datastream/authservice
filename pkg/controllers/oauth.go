@@ -3,6 +3,7 @@
 package controllers
 
 import (
+	"encoding/json"
 	"html/template"
 	"log"
 	"net/http"
@@ -37,6 +38,23 @@ func AuthPage(c *gin.Context) {
 	c.Header("Cache-Control", "no-cache, no-store, must-revalidate")
 	c.Header("Pragma", "no-cache")
 	c.Header("Expires", "0")
+
+	s, err := session.Start(c.Request.Context(), c.Writer, c.Request)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	if v, ok := s.Get("ReturnUri"); ok {
+		s.Delete("ReturnUri")
+		s.Save()
+		if serialized, ok := v.(string); ok {
+			c.Request.ParseForm()
+			if err = json.Unmarshal([]byte(serialized), &c.Request.Form); err != nil {
+				log.Printf("failed to restore ReturnUri: %v", err)
+			}
+		}
+	}
+
 	authPageData := AuthPageData{
 		AuthURL: c.Request.RequestURI,
 		Domain:  c.Request.Host,
