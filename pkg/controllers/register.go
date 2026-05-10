@@ -39,18 +39,28 @@ func Signup(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to register user"})
 		return
 	}
-	store, err := session.Start(c.Request.Context(), c.Writer, c.Request)
+	oldStore, err := session.Start(c.Request.Context(), c.Writer, c.Request)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	store.Set("LoggedInUserID", postForm.Username)
-	if err = store.Save(); err != nil {
+	oldStore.Flush()
+	if err = oldStore.Save(); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	newStore, err := session.Start(c.Request.Context(), c.Writer, c.Request)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	newStore.Set("LoggedInUserID", postForm.Username)
+	if err = newStore.Save(); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 	// redirect to /auth
 	c.Header("Location", "/auth")
-	c.JSON(http.StatusFound, gin.H{"message": "Login successful", "redirect": "/auth"})
+	c.JSON(http.StatusFound, gin.H{"message": "Registration successful", "redirect": "/auth"})
 }

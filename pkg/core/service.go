@@ -112,7 +112,9 @@ func (a *AuthService) InitOAuthServer() error {
 	clientStore := &models.ClientStore{}
 	manager.MapClientStorage(clientStore)
 
-	srv := server.NewServer(server.NewConfig(), manager)
+	srvConfig := server.NewConfig()
+	srvConfig.ForcePKCE = true
+	srv := server.NewServer(srvConfig, manager)
 
 	a.Server = srv
 	a.SetServerHandlers()

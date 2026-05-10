@@ -85,7 +85,7 @@ func (o *OAuthController) Login(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	store, err := session.Start(c.Request.Context(), c.Writer, c.Request)
+	oldStore, err := session.Start(c.Request.Context(), c.Writer, c.Request)
 	if err != nil {
 		middleware.Fail(c, http.StatusInternalServerError, err.Error())
 		return
@@ -98,8 +98,18 @@ func (o *OAuthController) Login(c *gin.Context) {
 		return
 	}
 
-	store.Set("LoggedInUserID", postForm.Username)
-	if err = store.Save(); err != nil {
+	oldStore.Flush()
+	if err = oldStore.Save(); err != nil {
+		middleware.Fail(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+	newStore, err := session.Start(c.Request.Context(), c.Writer, c.Request)
+	if err != nil {
+		middleware.Fail(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+	newStore.Set("LoggedInUserID", postForm.Username)
+	if err = newStore.Save(); err != nil {
 		middleware.Fail(c, http.StatusInternalServerError, err.Error())
 		return
 	}

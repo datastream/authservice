@@ -48,7 +48,7 @@ func main() {
 	r := gin.Default()
 	r.Use(cors.New(cors.Config{
 		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD"},
-		AllowHeaders:     []string{"Origin", "Content-Length", "Content-Type", "Authorization"},
+		AllowHeaders:     []string{"Origin", "Content-Length", "Content-Type", "Authorization", "Accept"},
 		AllowOrigins:     srv.Origins,
 		AllowCredentials: true,
 		MaxAge:           12 * time.Hour,
@@ -89,7 +89,7 @@ func main() {
 	r.POST("/oauth/token", oauth.TokenHandler)
 	r.GET("/userinfo", oauth.Userinfo)
 	r.GET("/userinfo/emails", oauth.UserinfoEmails)
-	r.GET("/test", oauth.TestHandler)
+	r.GET("/test", oauth.OAuthMiddleware(), oauth.TestHandler)
 	// ------------------------------------------------------------------
 	//  OpenFGA endpoints
 	// ------------------------------------------------------------------

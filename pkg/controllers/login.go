@@ -3,7 +3,6 @@
 package controllers
 
 import (
-	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -127,8 +126,7 @@ func checkAWSHMAC(r *http.Request) (*models.AccessToken, error) {
 	}
 
 	if authString != r.Header.Get("Authorization") {
-		r.Header.Set("Authorization", authString)
-		return nil, errors.New("authorization mismatch: bad request")
+		return nil, fmt.Errorf("authorization mismatch: bad request")
 	}
 
 	return &tk, nil
@@ -161,7 +159,7 @@ func AuthMiddleware() gin.HandlerFunc {
 			tk, err := checkAWSHMAC(c.Request)
 			if err != nil {
 				log.Println("[Err] AWS HMAC verification failed:", err)
-				c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "bad AWS4-HMAC-SHA256"})
+				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "bad AWS4-HMAC-SHA256"})
 				return
 			}
 			subject = fmt.Sprintf("tokens:%s", tk.AccessKey)
@@ -251,7 +249,7 @@ func Config(c *gin.Context) {
 		"token_endpoint":           issuer + "/oauth/token",
 		"userinfo_endpoint":        issuer + "/userinfo",
 		"scopes_supported":         []string{"openid", "profile", "email"},
-		"response_types_supported": []string{"code", "token", "code token"},
+		"response_types_supported": []string{"code", "code token"},
 	}
 	c.JSON(http.StatusOK, config)
 }
