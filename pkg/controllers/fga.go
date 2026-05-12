@@ -74,7 +74,12 @@ func (fga *FGAController) permissionMiddleware(rel, objTemplate string) gin.Hand
 }
 
 // NewFGAController creates a new FGAController from configuration.
+// Returns nil without error if no API token is configured (FGA is optional).
 func NewFGAController(config core.OpenFgaConfig) (*FGAController, error) {
+	if len(config.Token) == 0 {
+		log.Println("FGA not configured (no API token), skipping FGA controller initialization")
+		return nil, nil
+	}
 	fgaClient, err := client.NewSdkClient(&client.ClientConfiguration{
 		ApiUrl:               config.URL,     // required, e.g. https://api.fga.example
 		StoreId:              config.StoreID, // optional, not needed for `CreateStore` and `ListStores`, required before calling for all other methods

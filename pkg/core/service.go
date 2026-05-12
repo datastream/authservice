@@ -5,14 +5,15 @@
 package core
 
 import (
-	"context"
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 
 	"github.com/datastream/authservice/pkg/models"
 	"github.com/glebarez/sqlite"
+	"github.com/go-oauth2/oauth2/v4"
 	"github.com/go-oauth2/oauth2/v4/errors"
 	"github.com/go-oauth2/oauth2/v4/generates"
 	"github.com/go-oauth2/oauth2/v4/manage"
@@ -112,6 +113,24 @@ func (a *AuthService) InitOAuthServer() error {
 	clientStore := &models.ClientStore{}
 	manager.MapClientStorage(clientStore)
 
+	// Override default domain-suffix matching with exact host matching
+	// Client registered with "example.com" → only same-host redirects allowed.
+	// https://evil.example.com/callback is REJECTED.
+	manager.SetValidateURIHandler(func(baseURI, redirectURI string) error {
+		base, err := url.Parse(baseURI)
+		if err != nil {
+			return errors.ErrInvalidRedirectURI
+		}
+		redirect, err := url.Parse(redirectURI)
+		if err != nil {
+			return errors.ErrInvalidRedirectURI
+		}
+		if redirect.Host != base.Host {
+			return errors.ErrInvalidRedirectURI
+		}
+		return nil
+	})
+
 	srvConfig := server.NewConfig()
 	srvConfig.ForcePKCE = true
 	srv := server.NewServer(srvConfig, manager)
@@ -124,19 +143,19 @@ func (a *AuthService) InitOAuthServer() error {
 // set srver handlers
 func (a *AuthService) SetServerHandlers() {
 	a.Server.SetAllowGetAccessRequest(true)
-	a.Server.SetClientInfoHandler(server.ClientFormHandler)
 
-	a.Server.SetPasswordAuthorizationHandler(func(ctx context.Context, clientID, username, password string) (userID string, err error) {
-		// check user password
-		user, err := models.FindUserByUsername(username)
-		if err != nil || user.CheckPassword(password) != nil {
-			log.Println("Invalid credentials for user: ", username, err)
-			err = errors.New("invalid username or password")
-			return
+	// Accept both Basic Auth and form body for client credentials
+	a.Server.SetClientInfoHandler(func(r *http.Request) (string, string, error) {
+		// Try Basic Auth first (more secure — secrets not in request body/logs)
+		if clientID, secret, ok := r.BasicAuth(); ok {
+			return clientID, secret, nil
 		}
-		userID = user.Username
-		return
+		// Fall back to form body (backward compatibility)
+		return server.ClientFormHandler(r)
 	})
+
+	// Restrict to authorization code grant only (not implicit flow)
+	a.Server.SetAllowedResponseType(oauth2.Code)
 
 	a.Server.SetUserAuthorizationHandler(userAuthorizeHandler)
 	a.Server.SetInternalErrorHandler(func(err error) (re *errors.Response) {

@@ -47,7 +47,7 @@ func main() {
 	defer f.Close()
 	r := gin.Default()
 	r.Use(cors.New(cors.Config{
-		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD"},
+		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Length", "Content-Type", "Authorization", "Accept"},
 		AllowOrigins:     srv.Origins,
 		AllowCredentials: true,
@@ -70,16 +70,21 @@ func main() {
 			})),
 		)
 	}
-	// OAuth 2.0 endpoints
-	r.GET("/login", controllers.LoginPage)
+
+	r.Static("/static", "./static")
+
+	// SPA-facing APIs (JSON only)
+	r.POST("/api/login", controllers.LoginAPI)
+	r.POST("/api/signup", controllers.SignupAPI)
+	r.POST("/api/logout", controllers.LogoutAPI)
+	r.GET("/api/me", controllers.MeAPI)
+
+	r.GET("/api/tokens", controllers.TokensList)
+	r.POST("/api/tokens", controllers.ClientTokensCreate)
+	r.DELETE("/api/tokens/:id", controllers.TokenRevoke)
+
+	// OAuth 2.0 endpoints (unchanged — for external clients)
 	r.GET("/logout", controllers.Logout)
-	r.GET("/manager", controllers.Managerpage)
-	r.GET("/tokens", controllers.TokensList)
-	r.POST("/tokens", controllers.ClientTokensCreate)
-	r.DELETE("/tokens/:id", controllers.TokenRevoke)
-	r.GET("/signup", controllers.NewUser)
-	r.POST("/signup", controllers.Signup)
-	r.POST("/authentication", controllers.TokenAuth)
 	r.GET("/.well-known/openid-configuration", controllers.Config)
 
 	oauth := controllers.NewOAuthController(srv.Server)
@@ -90,29 +95,31 @@ func main() {
 	r.GET("/userinfo", oauth.Userinfo)
 	r.GET("/userinfo/emails", oauth.UserinfoEmails)
 	r.GET("/test", oauth.OAuthMiddleware(), oauth.TestHandler)
-	// ------------------------------------------------------------------
-	//  OpenFGA endpoints
-	// ------------------------------------------------------------------
+	r.POST("/oauth/revoke", oauth.RevokeToken)
+
+	// OpenFGA endpoints (optional - requires FGA API token in config)
 	fgaCtrl, err := controllers.NewFGAController(srv.OpenFgaConfig)
 	if err != nil {
 		log.Fatalf("Failed to initialize FGA controller: %v", err)
 	}
-	authorized := r.Group("/api/v1")
-	authorized.Use(controllers.AuthMiddleware())
-	authorized.Use(fgaCtrl.FGAMiddleware())
-	// one store, multiple authorization models.
-	// manage FGA authorization models
-	authorized.POST("/fga/models", fgaCtrl.Models)
-	authorized.GET("/fga/models/:id", fgaCtrl.GetModel)
-	// ------------------------------------------------------------------
-	// evaluate FGA permissions
-	modelauth := r.Group("/api/v1")
-	modelauth.Use(fgaCtrl.FGASepMiddleware())
-	modelauth.POST("/fga/models/:id/evaluate", fgaCtrl.Evaluate)
-	// manage FGA tuples
-	modelauth.POST("/fga/models/:id/tuples", fgaCtrl.Tuples)
-	modelauth.DELETE("/fga/models/:id/tuples", fgaCtrl.DeleteTuples)
-	// ------------------------------------------------------------------
+	if fgaCtrl != nil {
+		authorized := r.Group("/api/v1")
+		authorized.Use(controllers.AuthMiddleware())
+		authorized.Use(fgaCtrl.FGAMiddleware())
+		authorized.POST("/fga/models", fgaCtrl.Models)
+		authorized.GET("/fga/models/:id", fgaCtrl.GetModel)
+
+		modelauth := r.Group("/api/v1")
+		modelauth.Use(fgaCtrl.FGASepMiddleware())
+		modelauth.POST("/fga/models/:id/evaluate", fgaCtrl.Evaluate)
+		modelauth.POST("/fga/models/:id/tuples", fgaCtrl.Tuples)
+		modelauth.DELETE("/fga/models/:id/tuples", fgaCtrl.DeleteTuples)
+	}
+
+	// SPA catch-all: serve index.html for any unmatched route
+	r.NoRoute(func(c *gin.Context) {
+		c.File("./static/index.html")
+	})
 
 	r.Run(srv.ListenAddress)
 }

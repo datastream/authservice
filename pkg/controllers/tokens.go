@@ -8,18 +8,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// Managerpage shows the tokens page
-func Managerpage(c *gin.Context) {
-	userID := middleware.RequireLogin(c)
-	if userID == "" {
-		return
-	}
-	if err := middleware.ServeStaticHTML(c, "tokens.html"); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load tokens page"})
-		return
-	}
-}
-
 type TokenForm struct {
 	Domain   string `form:"domain" json:"domain" binding:"required"`
 	Public   bool   `form:"public" json:"public"`
@@ -27,9 +15,26 @@ type TokenForm struct {
 	UserID   string `form:"userId" json:"userId"`
 }
 
+func TokensList(c *gin.Context) {
+	userID, ok, err := middleware.GetLoggedInUserID(c)
+	if err != nil || !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Not authenticated"})
+		return
+	}
+	tokens, err := models.FindTokensByUserID(userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch tokens"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"tokens": tokens,
+	})
+}
+
 func ClientTokensCreate(c *gin.Context) {
-	userID := middleware.RequireLogin(c)
-	if userID == "" {
+	userID, ok, err := middleware.GetLoggedInUserID(c)
+	if err != nil || !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Not authenticated"})
 		return
 	}
 	var postForm TokenForm
@@ -51,30 +56,17 @@ func ClientTokensCreate(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{
-		"message":       "Token created successfully",
-		"client_id":     token.ClientID,
-		"client_secret": token.ClientSecret,
-	})
-}
-func TokensList(c *gin.Context) {
-	userID := middleware.RequireLogin(c)
-	if userID == "" {
-		return
-	}
-	tokens, err := models.FindTokensByUserID(userID)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch tokens"})
-		return
-	}
-	c.JSON(http.StatusOK, gin.H{
-		"tokens": tokens,
+		"ok":          true,
+		"clientID":    token.ClientID,
+		"clientSecret": token.ClientSecret,
 	})
 }
 
 // TokenRevoke deletes a token owned by the logged-in user
 func TokenRevoke(c *gin.Context) {
-	userID := middleware.RequireLogin(c)
-	if userID == "" {
+	userID, ok, err := middleware.GetLoggedInUserID(c)
+	if err != nil || !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Not authenticated"})
 		return
 	}
 	clientID := c.Param("id")
@@ -95,5 +87,5 @@ func TokenRevoke(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete token"})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"message": "Token revoked successfully"})
+	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
