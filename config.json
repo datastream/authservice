@@ -1,0 +1,14 @@
+{
+  "listenAddress": ":8080",
+  "dbFile": "./data/authserver.db",
+  "databaseType": "sqlite",
+  "logFile": "./logs/authserver.log",
+  "sessionName": "AUTH_SESSION",
+  "origins": ["http://localhost:8080"],
+  "openFgaConfig": {
+    "url": "http://localhost:8081",
+    "storeID": "",
+    "modelID": "",
+    "token": ""
+  }
+}

@@ -249,7 +249,7 @@ func Config(c *gin.Context) {
 		"token_endpoint":           issuer + "/oauth/token",
 		"userinfo_endpoint":        issuer + "/userinfo",
 		"scopes_supported":         []string{"openid", "profile", "email"},
-		"response_types_supported": []string{"code", "code token"},
+		"response_types_supported": []string{"code"},
 	}
 	c.JSON(http.StatusOK, config)
 }

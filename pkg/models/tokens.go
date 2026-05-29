@@ -20,6 +20,7 @@ type Token struct {
 	Domain       string    `json:"domain"`
 	Public       bool      `json:"public"`
 	Describe     string    `json:"describe"`
+	RedirectURIs string    `json:"redirectURIs" gorm:"size:1024"`
 	CreatedAt    time.Time `json:"createdAt" gorm:"autoCreateTime"`
 	UpdatedAt    time.Time `json:"updatedAt" gorm:"autoUpdateTime"`
 	DeletedAt    gorm.DeletedAt
@@ -99,4 +100,24 @@ func FindTokenByClientID(clientID string) (*Token, error) {
 		return nil, result.Error
 	}
 	return &token, nil
+}
+
+// FindTokensByDomain finds tokens where domain matches a URL host
+func FindTokensByDomain(host string) ([]Token, error) {
+	var tokens []Token
+	result := DB.Where("domain = ?", host).Find(&tokens)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return tokens, nil
+}
+
+// FindTokensByDisplayDomain finds tokens where domain matches a display name
+func FindTokensByDisplayDomain(domain string) ([]Token, error) {
+	var tokens []Token
+	result := DB.Where("domain = ?", domain).Find(&tokens)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return tokens, nil
 }

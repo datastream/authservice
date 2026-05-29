@@ -81,6 +81,7 @@ func main() {
 
 	r.GET("/api/tokens", controllers.TokensList)
 	r.POST("/api/tokens", controllers.ClientTokensCreate)
+	r.GET("/api/tokens/redirectUris", controllers.TokenRedirectURIs)
 	r.DELETE("/api/tokens/:id", controllers.TokenRevoke)
 
 	// OAuth 2.0 endpoints (unchanged — for external clients)
@@ -90,11 +91,12 @@ func main() {
 	oauth := controllers.NewOAuthController(srv.Server)
 	r.GET("/oauth/authorize", controllers.AuthPage)
 	r.POST("/oauth/authorize", oauth.OAuthHandler)
+	r.POST("/oauth/authorize/approve", oauth.AuthorizeApprove)
 	r.POST("/login", oauth.Login)
 	r.POST("/oauth/token", oauth.TokenHandler)
 	r.GET("/userinfo", oauth.Userinfo)
 	r.GET("/userinfo/emails", oauth.UserinfoEmails)
-	r.GET("/test", oauth.OAuthMiddleware(), oauth.TestHandler)
+	r.GET("/test", oauth.TestHandler)
 	r.POST("/oauth/revoke", oauth.RevokeToken)
 
 	// OpenFGA endpoints (optional - requires FGA API token in config)
@@ -116,8 +118,23 @@ func main() {
 		modelauth.DELETE("/fga/models/:id/tuples", fgaCtrl.DeleteTuples)
 	}
 
-	// SPA catch-all: serve index.html for any unmatched route
+	// SPA catch-all: serve index.html for unmatched GET routes.
+	// OPTIONS requests get CORS headers so mobile apps can preflight.
 	r.NoRoute(func(c *gin.Context) {
+		if c.Request.Method == http.MethodOptions {
+			for _, origin := range srv.Origins {
+				c.Header("Access-Control-Allow-Origin", origin)
+			}
+			c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS")
+			c.Header("Access-Control-Allow-Headers", "Origin, Content-Length, Content-Type, Authorization, Accept")
+			c.Header("Access-Control-Allow-Credentials", "true")
+			c.AbortWithStatus(http.StatusNoContent)
+			return
+		}
+		if c.Request.Method != http.MethodGet {
+			c.Next()
+			return
+		}
 		c.File("./static/index.html")
 	})
 

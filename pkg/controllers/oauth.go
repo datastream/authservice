@@ -3,12 +3,14 @@
 package controllers
 
 import (
-	"encoding/json"
-	"html/template"
+	"bytes"
+	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"strings"
 
+	"github.com/datastream/authservice/pkg/core"
 	"github.com/datastream/authservice/pkg/middleware"
 	"github.com/datastream/authservice/pkg/models"
 	"github.com/gin-gonic/gin"
@@ -25,14 +27,8 @@ func NewOAuthController(srv *server.Server) *OAuthController {
 	return &OAuthController{Srv: srv}
 }
 
-type AuthPageData struct {
-	Domain  string
-	AuthURL string
-}
-
-// GET /oauth/authorize renders the OAuth consent page.
-// For SPA-aware clients (JSON accept), it redirects to /login if not authenticated.
-// For browser clients, it renders the Go consent template with session data.
+// GET /oauth/authorize redirects to the Vue SPA consent page.
+// If not authenticated, redirects to /login.
 func AuthPage(c *gin.Context) {
 	// Check session first
 	_, ok, err := middleware.GetLoggedInUserID(c)
@@ -50,41 +46,84 @@ func AuthPage(c *gin.Context) {
 		}
 		return
 	}
-	// disable http cache
-	c.Header("Cache-Control", "no-cache, no-store, must-revalidate")
-	c.Header("Pragma", "no-cache")
-	c.Header("Expires", "0")
+	// Authenticated - redirect to Vue SPA consent page
+	query := c.Request.URL.RawQuery
+	if query != "" {
+		c.Redirect(http.StatusFound, "/consent?"+query)
+	} else {
+		c.Redirect(http.StatusFound, "/consent")
+	}
+}
 
-	// Restore ReturnUri form data if present (from login redirect)
-	if v, exists := c.Get("ReturnUri"); exists {
-		if serialized, ok := v.(string); ok {
-			c.Request.ParseForm()
-			if err = json.Unmarshal([]byte(serialized), &c.Request.Form); err != nil {
-				log.Printf("failed to restore ReturnUri: %v", err)
-			}
-		}
+// AuthorizeApprove is a JSON API endpoint for programmatic consent approval.
+// Used by the Vue SPA and mobile apps to approve OAuth authorization requests.
+func (o *OAuthController) AuthorizeApprove(c *gin.Context) {
+	// Validate required parameters
+	clientID := c.PostForm("client_id")
+	redirectURI := c.PostForm("redirect_uri")
+	state := c.PostForm("state")
+	codeChallenge := c.PostForm("code_challenge")
+	codeChallengeMethod := c.PostForm("code_challenge_method")
+
+	if clientID == "" || redirectURI == "" || state == "" || codeChallenge == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "invalid_request",
+		})
+		return
+	}
+	if codeChallengeMethod != "S256" && codeChallengeMethod != "plain" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "invalid_request",
+		})
+		return
 	}
 
-	authPageData := AuthPageData{
-		AuthURL: c.Request.RequestURI,
-		Domain:  c.Request.Host,
-	}
-	token, err := models.FindTokenByClientID(c.Query("client_id"))
+	// Verify client exists and user owns it
+	token, err := models.FindTokenByClientID(clientID)
 	if err != nil {
-		c.JSON(http.StatusFound, gin.H{"message": "Client not found", "redirect": "/userinfo"})
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": "unauthorized_client",
+		})
 		return
 	}
-	authPageData.Domain = token.Domain
+	userID, ok, err := middleware.GetLoggedInUserID(c)
+	if err != nil || !ok || userID != token.UserID {
+		c.JSON(http.StatusForbidden, gin.H{
+			"error": "forbidden",
+		})
+		return
+	}
 
-	// render auth page
-	t, err := template.ParseFiles("static/auth.html")
+	// Build the authorization request as form data for the library
+	form := url.Values{}
+	form.Set("client_id", clientID)
+	form.Set("redirect_uri", redirectURI)
+	form.Set("response_type", "code")
+	form.Set("state", state)
+	form.Set("code_challenge", codeChallenge)
+	form.Set("code_challenge_method", codeChallengeMethod)
+	if scope := c.PostForm("scope"); scope != "" {
+		form.Set("scope", scope)
+	}
+
+	// Create a request that the library can process
+	body := bytes.NewBufferString(form.Encode())
+	req, err := http.NewRequestWithContext(c.Request.Context(), http.MethodPost, "/oauth/authorize", body)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load auth page"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal_error"})
 		return
 	}
-	if err = t.Execute(c.Writer, authPageData); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to render auth page"})
-		return
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("Content-Length", fmt.Sprintf("%d", body.Len()))
+
+	// Set client ID for per-client redirect URI validation
+	core.SetCurrentClientID(clientID)
+	defer core.ClearCurrentClientID()
+
+	// Delegate to the library to generate the authorization code
+	if err := o.Srv.HandleAuthorizeRequest(c.Writer, req); err != nil {
+		log.Printf("AuthorizeApprove: HandleAuthorizeRequest failed: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal_error"})
 	}
 }
 
@@ -134,6 +173,11 @@ func (o *OAuthController) Login(c *gin.Context) {
 }
 
 func (o *OAuthController) OAuthHandler(c *gin.Context) {
+	// Extract client_id for per-client redirect URI validation
+	if clientID := c.Query("client_id"); clientID != "" {
+		core.SetCurrentClientID(clientID)
+		defer core.ClearCurrentClientID()
+	}
 	// Session check is already done by AuthPage (GET). The go-oauth2 library's
 	// HandleAuthorizeRequest internally calls userAuthorizeHandler which checks
 	// the session. We delegate to it directly.

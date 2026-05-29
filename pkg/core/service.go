@@ -10,6 +10,8 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
+	"sync"
 
 	"github.com/datastream/authservice/pkg/models"
 	"github.com/glebarez/sqlite"
@@ -27,6 +29,27 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
+
+// currentClientID tracks the client being authorized for per-client redirect URI validation.
+// Set via SetCurrentClientID before HandleAuthorizeRequest, cleared after.
+var (
+	currentClientID string
+	currentClientMu sync.RWMutex
+)
+
+// SetCurrentClientID sets the client ID for the current authorization request.
+func SetCurrentClientID(id string) {
+	currentClientMu.Lock()
+	currentClientID = id
+	currentClientMu.Unlock()
+}
+
+// ClearCurrentClientID clears the current client after authorization flow completes.
+func ClearCurrentClientID() {
+	currentClientMu.Lock()
+	currentClientID = ""
+	currentClientMu.Unlock()
+}
 
 type AuthService struct {
 	ListenAddress string `yaml:"listenAddress"`
@@ -113,23 +136,10 @@ func (a *AuthService) InitOAuthServer() error {
 	clientStore := &models.ClientStore{}
 	manager.MapClientStorage(clientStore)
 
-	// Override default domain-suffix matching with exact host matching
-	// Client registered with "example.com" → only same-host redirects allowed.
-	// https://evil.example.com/callback is REJECTED.
-	manager.SetValidateURIHandler(func(baseURI, redirectURI string) error {
-		base, err := url.Parse(baseURI)
-		if err != nil {
-			return errors.ErrInvalidRedirectURI
-		}
-		redirect, err := url.Parse(redirectURI)
-		if err != nil {
-			return errors.ErrInvalidRedirectURI
-		}
-		if redirect.Host != base.Host {
-			return errors.ErrInvalidRedirectURI
-		}
-		return nil
-	})
+	// Override default domain-suffix matching with exact redirect URI validation.
+	// Validates against registered redirect URIs for the client, falling back
+	// to domain-based host comparison for backward compatibility.
+	manager.SetValidateURIHandler(a.validateURI)
 
 	srvConfig := server.NewConfig()
 	srvConfig.ForcePKCE = true
@@ -142,8 +152,6 @@ func (a *AuthService) InitOAuthServer() error {
 
 // set srver handlers
 func (a *AuthService) SetServerHandlers() {
-	a.Server.SetAllowGetAccessRequest(true)
-
 	// Accept both Basic Auth and form body for client credentials
 	a.Server.SetClientInfoHandler(func(r *http.Request) (string, string, error) {
 		// Try Basic Auth first (more secure — secrets not in request body/logs)
@@ -168,6 +176,69 @@ func (a *AuthService) SetServerHandlers() {
 	})
 }
 
+// validateURI validates redirect URI against registered URIs for the authorized client.
+// When SetCurrentClientID is set (AuthorizerApprove flow), only that client's URIs are checked.
+// Otherwise, validates against any client registered for the base host domain.
+func (a *AuthService) validateURI(baseURI, redirectURI string) error {
+	base, err := url.Parse(baseURI)
+	if err != nil {
+		return errors.ErrInvalidRedirectURI
+	}
+	redirect, err := url.Parse(redirectURI)
+	if err != nil {
+		return errors.ErrInvalidRedirectURI
+	}
+
+	// If a client ID is set (AuthorizerApprove programmatic flow), check only that client
+	currentClientMu.RLock()
+	clientID := currentClientID
+	currentClientMu.RUnlock()
+
+	if clientID != "" {
+		var token models.Token
+		if result := models.DB.Where("client_id = ?", clientID).First(&token); result.Error != nil {
+			return errors.ErrInvalidRedirectURI
+		}
+		if token.RedirectURIs != "" {
+			registered := strings.Split(token.RedirectURIs, ";")
+			for _, uri := range registered {
+				if strings.TrimSpace(uri) == redirectURI {
+					return nil
+				}
+			}
+		}
+		// No registered URIs for this client — fall through to host comparison
+	}
+
+	// Fallback: check if any client for this host has this redirect URI registered
+	var clients []models.Token
+	if base.Host != "" {
+		clients, err = models.FindTokensByDomain(base.Host)
+	} else {
+		clients, err = models.FindTokensByDisplayDomain(baseURI)
+	}
+	if err != nil {
+		return errors.ErrInvalidRedirectURI
+	}
+	for _, c := range clients {
+		if c.RedirectURIs == "" {
+			continue
+		}
+		registered := strings.Split(c.RedirectURIs, ";")
+		for _, uri := range registered {
+			if strings.TrimSpace(uri) == redirectURI {
+				return nil
+			}
+		}
+	}
+
+	// Final fallback: domain-based host comparison for backward compatibility
+	if redirect.Host != base.Host {
+		return errors.ErrInvalidRedirectURI
+	}
+	return nil
+}
+
 // user authorizeHandler
 func userAuthorizeHandler(w http.ResponseWriter, r *http.Request) (userID string, err error) {
 	store, err := session.Start(r.Context(), w, r)
@@ -177,12 +248,6 @@ func userAuthorizeHandler(w http.ResponseWriter, r *http.Request) (userID string
 
 	uid, ok := store.Get("LoggedInUserID")
 	if !ok {
-		if r.Form == nil {
-			r.ParseForm()
-		}
-		store.Set("ReturnUri", fmt.Sprintf("%v", r.Form))
-		store.Save()
-
 		w.Header().Set("Location", "/login")
 		w.WriteHeader(http.StatusFound)
 		return
