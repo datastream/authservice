@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"slices"
 	"strings"
 
 	"github.com/datastream/authservice/pkg/core"
@@ -20,7 +21,7 @@ import (
 type FGAController struct {
 	FgaClient            *client.OpenFgaClient
 	AuthorizationModelId string
-	// Add fields as necessary
+	AdminUsers        []string
 }
 
 // Constants for FGA relations and objects.
@@ -74,8 +75,9 @@ func (fga *FGAController) permissionMiddleware(rel, objTemplate string) gin.Hand
 }
 
 // NewFGAController creates a new FGAController from configuration.
+// adminUsers is a list of usernames allowed to create FGA models.
 // Returns nil without error if no API token is configured (FGA is optional).
-func NewFGAController(config core.OpenFgaConfig) (*FGAController, error) {
+func NewFGAController(config core.OpenFgaConfig, adminUsers []string) (*FGAController, error) {
 	if len(config.Token) == 0 {
 		log.Println("FGA not configured (no API token), skipping FGA controller initialization")
 		return nil, nil
@@ -95,7 +97,7 @@ func NewFGAController(config core.OpenFgaConfig) (*FGAController, error) {
 		log.Println("init fga failed", err, config.URL)
 		return nil, err
 	}
-	return &FGAController{FgaClient: fgaClient, AuthorizationModelId: config.ModelID}, nil
+	return &FGAController{FgaClient: fgaClient, AuthorizationModelId: config.ModelID, AdminUsers: adminUsers}, nil
 }
 
 // checkPermission is a small helper to centralize FGA Check calls.
@@ -129,6 +131,11 @@ func (fga *FGAController) FGASepMiddleware() gin.HandlerFunc {
 
 // create models
 func (fga *FGAController) Models(c *gin.Context) {
+	// Restrict model creation to FGA admin users.
+	if len(fga.AdminUsers) > 0 && !slices.Contains(fga.AdminUsers, c.GetString("Subject")) {
+		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "admin access required to create FGA models"})
+		return
+	}
 	var body client.ClientWriteAuthorizationModelRequest
 	err := c.Bind(&body)
 	if err != nil {

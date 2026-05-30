@@ -16,7 +16,7 @@ import (
 type Token struct {
 	UserID       string    `json:"userID" gorm:"index"`
 	ClientID     string    `json:"clientID" gorm:"uniqueIndex:client_id"`
-	ClientSecret string    `json:"clientSecret"`
+	ClientSecret string    `json:"-" gorm:"size:256"`
 	Domain       string    `json:"domain"`
 	Public       bool      `json:"public"`
 	Describe     string    `json:"describe"`

@@ -10,7 +10,6 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/datastream/authservice/pkg/core"
 	"github.com/datastream/authservice/pkg/middleware"
 	"github.com/datastream/authservice/pkg/models"
 	"github.com/gin-gonic/gin"
@@ -116,10 +115,6 @@ func (o *OAuthController) AuthorizeApprove(c *gin.Context) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("Content-Length", fmt.Sprintf("%d", body.Len()))
 
-	// Set client ID for per-client redirect URI validation
-	core.SetCurrentClientID(clientID)
-	defer core.ClearCurrentClientID()
-
 	// Delegate to the library to generate the authorization code
 	if err := o.Srv.HandleAuthorizeRequest(c.Writer, req); err != nil {
 		log.Printf("AuthorizeApprove: HandleAuthorizeRequest failed: %v", err)
@@ -142,6 +137,7 @@ func (o *OAuthController) Login(c *gin.Context) {
 	user, err := models.FindUserByUsername(postForm.Username)
 	if err != nil || user.CheckPassword(postForm.Password) != nil {
 		log.Println("Invalid credentials for user:", postForm.Username, err)
+		middleware.RecordLoginFailure(postForm.Username)
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
 		return
 	}
@@ -173,14 +169,21 @@ func (o *OAuthController) Login(c *gin.Context) {
 }
 
 func (o *OAuthController) OAuthHandler(c *gin.Context) {
-	// Extract client_id for per-client redirect URI validation
-	if clientID := c.Query("client_id"); clientID != "" {
-		core.SetCurrentClientID(clientID)
-		defer core.ClearCurrentClientID()
+	// Explicit session check for defense-in-depth (AuthPage does this for GET).
+	// The go-oauth2 library also checks the session internally via userAuthorizeHandler,
+	// but we check here first so we return a consistent JSON error instead of
+	// relying on the library's error formatting.
+	_, ok, err := middleware.GetLoggedInUserID(c)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
 	}
-	// Session check is already done by AuthPage (GET). The go-oauth2 library's
-	// HandleAuthorizeRequest internally calls userAuthorizeHandler which checks
-	// the session. We delegate to it directly.
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		c.Abort()
+		return
+	}
+
 	if err := o.Srv.HandleAuthorizeRequest(c.Writer, c.Request); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -287,8 +290,13 @@ func (o *OAuthController) RevokeToken(c *gin.Context) {
 	default:
 		err = o.Srv.Manager.RemoveAccessToken(ctx, token)
 	}
-	// Per RFC 7678 §2.2: server MUST NOT reveal whether token existed
-	_ = err
+	// Per RFC 7678 §2.2: return 200 regardless of whether the token existed
+	// (don't leak existence). But return 500 if the token store itself failed.
+	if err != nil {
+		log.Printf("RevokeToken: store error removing token: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "token revocation failed"})
+		return
+	}
 	c.JSON(http.StatusOK, gin.H{"status": "ok"})
 }
 
@@ -317,7 +325,7 @@ func (o *OAuthController) OAuthMiddleware() gin.HandlerFunc {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch user profile"})
 				return
 			}
-			c.Set("Subject", user)
+			c.Set("Subject", user.Username)
 		}
 		c.Next()
 	}

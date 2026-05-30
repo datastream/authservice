@@ -178,7 +178,6 @@ type TokenForm struct {
 	Domain   string `json:"domain"`
 	Public   bool   `json:"public"`
 	Describe string `json:"describe,omitempty"`
-	UserID   string `json:"userID,omitempty"`
 }
 
 type CreateTokenResponse struct {

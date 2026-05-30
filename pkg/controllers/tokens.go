@@ -13,7 +13,13 @@ type TokenForm struct {
 	Domain   string `form:"domain" json:"domain" binding:"required"`
 	Public   bool   `form:"public" json:"public"`
 	Describe string `form:"describe" json:"describe"`
-	UserID   string `form:"userId" json:"userId"`
+}
+
+// TokenCreateResponse is returned only at creation time — clientSecret is never shown again.
+type TokenCreateResponse struct {
+	OK           bool   `json:"ok"`
+	ClientID     string `json:"client_id"`
+	ClientSecret string `json:"client_secret"`
 }
 
 func TokensList(c *gin.Context) {
@@ -43,11 +49,8 @@ func ClientTokensCreate(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	if postForm.UserID == "" {
-		postForm.UserID = userID
-	}
 	token := models.Token{
-		UserID:   postForm.UserID,
+		UserID:   userID,
 		Domain:   postForm.Domain,
 		Public:   postForm.Public,
 		Describe: postForm.Describe,
@@ -56,10 +59,10 @@ func ClientTokensCreate(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create token"})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{
-		"ok":          true,
-		"clientID":    token.ClientID,
-		"clientSecret": token.ClientSecret,
+	c.JSON(http.StatusOK, TokenCreateResponse{
+		OK:           true,
+		ClientID:     token.ClientID,
+		ClientSecret: token.ClientSecret,
 	})
 }
 

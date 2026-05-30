@@ -40,6 +40,7 @@ func LoginAPI(c *gin.Context) {
 	user, err := models.FindUserByUsername(postForm.Username)
 	if err != nil || user.CheckPassword(postForm.Password) != nil {
 		log.Println("Invalid credentials for user:", postForm.Username, err)
+		middleware.RecordLoginFailure(postForm.Username)
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
 		return
 	}

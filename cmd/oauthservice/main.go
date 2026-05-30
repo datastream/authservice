@@ -11,6 +11,7 @@ import (
 
 	"github.com/datastream/authservice/pkg/controllers"
 	"github.com/datastream/authservice/pkg/core"
+	"github.com/datastream/authservice/pkg/middleware"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/go-session/redis/v3"
@@ -74,7 +75,7 @@ func main() {
 	r.Static("/static", "./static")
 
 	// SPA-facing APIs (JSON only)
-	r.POST("/api/login", controllers.LoginAPI)
+	r.POST("/api/login", middleware.LoginRateLimit(), controllers.LoginAPI)
 	r.POST("/api/signup", controllers.SignupAPI)
 	r.POST("/api/logout", controllers.LogoutAPI)
 	r.GET("/api/me", controllers.MeAPI)
@@ -92,7 +93,7 @@ func main() {
 	r.GET("/oauth/authorize", controllers.AuthPage)
 	r.POST("/oauth/authorize", oauth.OAuthHandler)
 	r.POST("/oauth/authorize/approve", oauth.AuthorizeApprove)
-	r.POST("/login", oauth.Login)
+	r.POST("/login", middleware.LoginRateLimit(), oauth.Login)
 	r.POST("/oauth/token", oauth.TokenHandler)
 	r.GET("/userinfo", oauth.Userinfo)
 	r.GET("/userinfo/emails", oauth.UserinfoEmails)
@@ -100,7 +101,7 @@ func main() {
 	r.POST("/oauth/revoke", oauth.RevokeToken)
 
 	// OpenFGA endpoints (optional - requires FGA API token in config)
-	fgaCtrl, err := controllers.NewFGAController(srv.OpenFgaConfig)
+	fgaCtrl, err := controllers.NewFGAController(srv.OpenFgaConfig, srv.FGAAdminUsers)
 	if err != nil {
 		log.Fatalf("Failed to initialize FGA controller: %v", err)
 	}

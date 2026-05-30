@@ -11,7 +11,6 @@ import (
 	"net/url"
 	"os"
 	"strings"
-	"sync"
 
 	"github.com/datastream/authservice/pkg/models"
 	"github.com/glebarez/sqlite"
@@ -30,27 +29,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// currentClientID tracks the client being authorized for per-client redirect URI validation.
-// Set via SetCurrentClientID before HandleAuthorizeRequest, cleared after.
-var (
-	currentClientID string
-	currentClientMu sync.RWMutex
-)
-
-// SetCurrentClientID sets the client ID for the current authorization request.
-func SetCurrentClientID(id string) {
-	currentClientMu.Lock()
-	currentClientID = id
-	currentClientMu.Unlock()
-}
-
-// ClearCurrentClientID clears the current client after authorization flow completes.
-func ClearCurrentClientID() {
-	currentClientMu.Lock()
-	currentClientID = ""
-	currentClientMu.Unlock()
-}
-
 type AuthService struct {
 	ListenAddress string `yaml:"listenAddress"`
 	Domain        string `yaml:"domain"`
@@ -67,7 +45,8 @@ type AuthService struct {
 	SessionName string   `yaml:"sessionName"`
 	Origins     []string `yaml:"origins"`
 	// OpenFGA
-	OpenFgaConfig `yaml:"openFgaConfig"`
+	OpenFgaConfig        `yaml:"openFgaConfig"`
+	FGAAdminUsers        []string `yaml:"fgaAdminUsers"` // restricted FGA model creators
 	// oauth2 server
 	Server *server.Server
 }
@@ -77,6 +56,9 @@ type OpenFgaConfig struct {
 	ModelID string `yaml:"modelID"` //model for authorization
 	Token   string `yaml:"token"`
 }
+
+// FGAAdminUsers restricts FGA model creation to specific usernames.
+// Empty list means no FGA admin restrictions (all authenticated users can manage FGA).
 
 // read from config.yaml
 func LoadConfig(name string) (*AuthService, error) {
@@ -177,8 +159,8 @@ func (a *AuthService) SetServerHandlers() {
 }
 
 // validateURI validates redirect URI against registered URIs for the authorized client.
-// When SetCurrentClientID is set (AuthorizerApprove flow), only that client's URIs are checked.
-// Otherwise, validates against any client registered for the base host domain.
+// The client ID is extracted from the baseURI query params (OAuth authorize URL
+// always includes client_id). Falls back to host-based validation if not found.
 func (a *AuthService) validateURI(baseURI, redirectURI string) error {
 	base, err := url.Parse(baseURI)
 	if err != nil {
@@ -189,10 +171,8 @@ func (a *AuthService) validateURI(baseURI, redirectURI string) error {
 		return errors.ErrInvalidRedirectURI
 	}
 
-	// If a client ID is set (AuthorizerApprove programmatic flow), check only that client
-	currentClientMu.RLock()
-	clientID := currentClientID
-	currentClientMu.RUnlock()
+	// Extract client_id from the authorize request query params
+	clientID := base.Query().Get("client_id")
 
 	if clientID != "" {
 		var token models.Token
