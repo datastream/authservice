@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OAuth 2.0 PKCE Example</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+    <h1>OAuth 2.0 PKCE Example</h1>
+
+    <section id="profile" class="hidden">
+      <h2>User Profile</h2>
+      <pre id="profile-data"></pre>
+      <button id="logout-btn">Logout</button>
+    </section>
+
+    <section id="login-section" class="hidden">
+      <h2>Login</h2>
+      <form id="login-form">
+        <label for="username">Username:</label>
+        <input type="text" id="username" required autocomplete="username">
+        <label for="password">Password:</label>
+        <input type="password" id="password" required autocomplete="current-password">
+        <button type="submit">Log In</button>
+      </form>
+      <p id="login-error" class="error hidden"></p>
+    </section>
+
+    <section id="authorize-section">
+      <h2>Start Authorization</h2>
+      <p>Click the button below to start the OAuth 2.0 Authorization Code Flow with PKCE.</p>
+      <button id="authorize-btn">Authorize</button>
+    </section>
+
+    <section id="callback-section" class="hidden">
+      <h2>Processing Callback</h2>
+      <p id="callback-status">Processing authorization response...</p>
+    </section>
+
+    <section id="error-section" class="hidden">
+      <h2>Error</h2>
+      <p id="error-message"></p>
+    </section>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

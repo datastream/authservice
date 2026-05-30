@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Processing...</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+    <h1>Processing Authorization</h1>
+    <p id="callback-status">Exchanging code for token, please wait...</p>
+    <p class="error hidden" id="callback-error"></p>
+  </div>
+  <script src="app.js"></script>
+  <script>
+    // callback.html: minimal page that detects the OAuth code and processes it
+    // The app.js logic runs automatically on load
+    document.addEventListener("DOMContentLoaded", () => {
+      // If we land here with code/error params, process the callback
+      const params = new URLSearchParams(window.location.search);
+      if (params.has("code")) {
+        callbackStatus.textContent = "Code received. Exchanging for token...";
+        handleCallback();
+      } else if (params.has("error")) {
+        callbackError.classList.remove("hidden");
+        callbackError.textContent =
+          "Authorization error: " +
+          params.get("error") +
+          (params.get("error_description")
+            ? " (" + params.get("error_description") + ")"
+            : "");
+      }
+    });
+  </script>
+</body>
+</html>

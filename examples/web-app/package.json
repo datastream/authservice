@@ -1,0 +1,12 @@
+{
+  "name": "oauth-pkce-web-app",
+  "version": "1.0.0",
+  "description": "OAuth 2.0 Authorization Code Flow with PKCE example (vanilla JS SPA)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.0"
+  }
+}
