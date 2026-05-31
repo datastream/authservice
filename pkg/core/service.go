@@ -1,19 +1,20 @@
 // Package core provides the central AuthService struct that holds configuration,
 // database connection, Redis client, OpenFGA client, and OAuth2 server.
-// It is responsible for loading configuration, initializing the database, and
-// wiring the OAuth2 server with token and client stores.
 package core
 
 import (
+	"context"
+	"database/sql"
 	"fmt"
 	"log"
 	"net/http"
 	"net/url"
 	"os"
 	"strings"
+	"time"
 
+	"github.com/datastream/authservice/pkg/db"
 	"github.com/datastream/authservice/pkg/models"
-	"github.com/glebarez/sqlite"
 	"github.com/go-oauth2/oauth2/v4"
 	"github.com/go-oauth2/oauth2/v4/errors"
 	"github.com/go-oauth2/oauth2/v4/generates"
@@ -24,9 +25,6 @@ import (
 	"github.com/go-redis/redis/v8"
 	"github.com/go-session/session/v3"
 	"gopkg.in/yaml.v3"
-	"gorm.io/driver/mysql"
-	"gorm.io/driver/postgres"
-	"gorm.io/gorm"
 )
 
 type AuthService struct {
@@ -36,31 +34,26 @@ type AuthService struct {
 	LogFile       string `yaml:"logFile"`
 	DatabaseURI   string `yaml:"databaseURI"`
 	DatabaseType  string `yaml:"databaseType"`
-	DB            *gorm.DB
+	DB            *sql.DB
+	DBQueries     *db.Queries
 	Redis         string `yaml:"redis"`
 	RedisPassword string `yaml:"redisPassword"`
 	RedisDB       int    `yaml:"redisDB"`
 	RedisTokenDB  int    `yaml:"redisTokenDB"`
-	// cookie ID
-	SessionName string   `yaml:"sessionName"`
-	Origins     []string `yaml:"origins"`
-	// OpenFGA
-	OpenFgaConfig        `yaml:"openFgaConfig"`
-	FGAAdminUsers        []string `yaml:"fgaAdminUsers"` // restricted FGA model creators
-	// oauth2 server
+	SessionName   string `yaml:"sessionName"`
+	Origins       []string `yaml:"origins"`
+	OpenFgaConfig        OpenFgaConfig `yaml:"openFgaConfig"`
+	FGAAdminUsers        []string      `yaml:"fgaAdminUsers"`
 	Server *server.Server
 }
+
 type OpenFgaConfig struct {
 	URL     string `yaml:"url"`
 	StoreID string `yaml:"storeID"`
-	ModelID string `yaml:"modelID"` //model for authorization
+	ModelID string `yaml:"modelID"`
 	Token   string `yaml:"token"`
 }
 
-// FGAAdminUsers restricts FGA model creation to specific usernames.
-// Empty list means no FGA admin restrictions (all authenticated users can manage FGA).
-
-// read from config.yaml
 func LoadConfig(name string) (*AuthService, error) {
 	config, err := os.ReadFile(name)
 	if err != nil {
@@ -77,32 +70,46 @@ func LoadConfig(name string) (*AuthService, error) {
 	return &conf, nil
 }
 
-// init database
 func (a *AuthService) InitDB() error {
-	// config database
-	var db *gorm.DB
+	var dbConn *sql.DB
 	var err error
 	switch a.DatabaseType {
 	case "postgresql":
-		db, err = gorm.Open(postgres.Open(a.DatabaseURI), &gorm.Config{})
+		dbConn, err = sql.Open("pgx", a.DatabaseURI)
+		if err == nil {
+			err = dbConn.Ping()
+		}
 	case "mysql":
-		db, err = gorm.Open(mysql.Open(a.DatabaseURI), &gorm.Config{})
+		dbConn, err = sql.Open("mysql", a.DatabaseURI)
+		if err == nil {
+			err = dbConn.Ping()
+		}
 	case "sqlite":
-		db, err = gorm.Open(sqlite.Open(a.DatabaseURI), &gorm.Config{})
+		dbConn, err = sql.Open("sqlite", a.DatabaseURI)
+		if err == nil {
+			err = dbConn.Ping()
+		}
 	default:
 		return fmt.Errorf("bad database type: %s", a.DatabaseType)
 	}
-	models.Register(db)
-	a.DB = db
-	return err
+	if err != nil {
+		return fmt.Errorf("failed to connect to database: %w", err)
+	}
+
+	dbConn.SetMaxOpenConns(25)
+	dbConn.SetMaxIdleConns(10)
+	dbConn.SetConnMaxLifetime(5 * time.Minute)
+
+	a.DB = dbConn
+	a.DBQueries = db.New(dbConn)
+	models.SetQueries(a.DBQueries)
+	return nil
 }
 
-// init manager and server
 func (a *AuthService) InitOAuthServer() error {
 	manager := manage.NewDefaultManager()
 	manager.SetAuthorizeCodeTokenCfg(manage.DefaultAuthorizeCodeTokenCfg)
 
-	// token store, if you want to use redis, just replace it with redis store
 	if a.Redis == "" {
 		manager.MustTokenStorage(store.NewFileTokenStore(a.DBFile))
 	} else {
@@ -114,13 +121,9 @@ func (a *AuthService) InitOAuthServer() error {
 	}
 
 	manager.MapAccessGenerate(generates.NewAccessGenerate())
-	// client store
-	clientStore := &models.ClientStore{}
+	clientStore := &db.ClientStore{Queries: a.DBQueries}
 	manager.MapClientStorage(clientStore)
 
-	// Override default domain-suffix matching with exact redirect URI validation.
-	// Validates against registered redirect URIs for the client, falling back
-	// to domain-based host comparison for backward compatibility.
 	manager.SetValidateURIHandler(a.validateURI)
 
 	srvConfig := server.NewConfig()
@@ -132,35 +135,25 @@ func (a *AuthService) InitOAuthServer() error {
 	return nil
 }
 
-// set srver handlers
 func (a *AuthService) SetServerHandlers() {
-	// Accept both Basic Auth and form body for client credentials
 	a.Server.SetClientInfoHandler(func(r *http.Request) (string, string, error) {
-		// Try Basic Auth first (more secure — secrets not in request body/logs)
 		if clientID, secret, ok := r.BasicAuth(); ok {
 			return clientID, secret, nil
 		}
-		// Fall back to form body (backward compatibility)
 		return server.ClientFormHandler(r)
 	})
 
-	// Restrict to authorization code grant only (not implicit flow)
 	a.Server.SetAllowedResponseType(oauth2.Code)
-
 	a.Server.SetUserAuthorizationHandler(userAuthorizeHandler)
 	a.Server.SetInternalErrorHandler(func(err error) (re *errors.Response) {
 		log.Println("Internal Error:", err.Error())
 		return
 	})
-
 	a.Server.SetResponseErrorHandler(func(re *errors.Response) {
 		log.Println("Response Error:", re.Error.Error())
 	})
 }
 
-// validateURI validates redirect URI against registered URIs for the authorized client.
-// The client ID is extracted from the baseURI query params (OAuth authorize URL
-// always includes client_id). Falls back to host-based validation if not found.
 func (a *AuthService) validateURI(baseURI, redirectURI string) error {
 	base, err := url.Parse(baseURI)
 	if err != nil {
@@ -171,68 +164,59 @@ func (a *AuthService) validateURI(baseURI, redirectURI string) error {
 		return errors.ErrInvalidRedirectURI
 	}
 
-	// Extract client_id from the authorize request query params
 	clientID := base.Query().Get("client_id")
-
 	if clientID != "" {
-		var token models.Token
-		if result := models.DB.Where("client_id = ?", clientID).First(&token); result.Error != nil {
+		token, err := a.DBQueries.GetTokenByClientID(context.Background(), clientID)
+		if err != nil {
 			return errors.ErrInvalidRedirectURI
 		}
-		if token.RedirectURIs != "" {
-			registered := strings.Split(token.RedirectURIs, ";")
+		if token.RedirectUris.Valid && token.RedirectUris.String != "" {
+			registered := strings.Split(token.RedirectUris.String, ";")
 			for _, uri := range registered {
 				if strings.TrimSpace(uri) == redirectURI {
 					return nil
 				}
 			}
 		}
-		// No registered URIs for this client — fall through to host comparison
 	}
 
-	// Fallback: check if any client for this host has this redirect URI registered
-	var clients []models.Token
+	var clients []db.Token
 	if base.Host != "" {
-		clients, err = models.FindTokensByDomain(base.Host)
+		clients, err = a.DBQueries.GetTokensByDomain(context.Background(), base.Host)
 	} else {
-		clients, err = models.FindTokensByDisplayDomain(baseURI)
+		clients, err = a.DBQueries.GetTokensByDomain(context.Background(), baseURI)
 	}
 	if err != nil {
 		return errors.ErrInvalidRedirectURI
 	}
 	for _, c := range clients {
-		if c.RedirectURIs == "" {
-			continue
-		}
-		registered := strings.Split(c.RedirectURIs, ";")
-		for _, uri := range registered {
-			if strings.TrimSpace(uri) == redirectURI {
-				return nil
+		if c.RedirectUris.Valid && c.RedirectUris.String != "" {
+			registered := strings.Split(c.RedirectUris.String, ";")
+			for _, uri := range registered {
+				if strings.TrimSpace(uri) == redirectURI {
+					return nil
+				}
 			}
 		}
 	}
 
-	// Final fallback: domain-based host comparison for backward compatibility
 	if redirect.Host != base.Host {
 		return errors.ErrInvalidRedirectURI
 	}
 	return nil
 }
 
-// user authorizeHandler
 func userAuthorizeHandler(w http.ResponseWriter, r *http.Request) (userID string, err error) {
 	store, err := session.Start(r.Context(), w, r)
 	if err != nil {
 		return
 	}
-
 	uid, ok := store.Get("LoggedInUserID")
 	if !ok {
 		w.Header().Set("Location", "/login")
 		w.WriteHeader(http.StatusFound)
 		return
 	}
-
 	userID = uid.(string)
 	return
 }

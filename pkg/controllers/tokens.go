@@ -53,7 +53,7 @@ func ClientTokensCreate(c *gin.Context) {
 		UserID:   userID,
 		Domain:   postForm.Domain,
 		Public:   postForm.Public,
-		Describe: postForm.Describe,
+		Describe: &postForm.Describe,
 	}
 	if err := token.Save(); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create token"})
@@ -101,8 +101,8 @@ func TokenRedirectURIs(c *gin.Context) {
 	case "GET":
 		// Return current redirect URIs without parsing any body
 		var uris []string
-		if token.RedirectURIs != "" {
-			for _, u := range strings.Split(token.RedirectURIs, ";") {
+		if token.RedirectURIs != nil && *token.RedirectURIs != "" {
+			for _, u := range strings.Split(*token.RedirectURIs, ";") {
 				if u := strings.TrimSpace(u); u != "" {
 					uris = append(uris, u)
 				}
@@ -121,18 +121,14 @@ func TokenRedirectURIs(c *gin.Context) {
 		updated := token.RedirectURIs
 		for _, u := range form.URIs {
 			if u = strings.TrimSpace(u); u != "" {
-				updated = strings.ReplaceAll(updated, u, u)
-				if !strings.Contains(updated, u) {
-					if updated != "" {
-						updated += ";"
-					}
-					updated += u
+				if updated == nil || *updated == "" {
+					*updated = u
+				} else if !strings.Contains(*updated, u) {
+					*updated += ";" + u
 				}
 			}
 		}
-		if err := models.DB.Model(&models.Token{}).
-			Where("client_id = ?", clientID).
-			Update("redirect_uris", updated).Error; err != nil {
+		if err := models.UpdateRedirectURIs(clientID, updated); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update redirect URIs"})
 			return
 		}
@@ -143,7 +139,10 @@ func TokenRedirectURIs(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
 		}
-		updated := token.RedirectURIs
+		updated := ""
+		if token.RedirectURIs != nil {
+			updated = *token.RedirectURIs
+		}
 		for _, u := range form.URIs {
 			u = strings.TrimSpace(u)
 			if u == "" {
@@ -160,9 +159,7 @@ func TokenRedirectURIs(c *gin.Context) {
 				updated = strings.ReplaceAll(updated, replacement, "")
 			}
 		}
-		if err := models.DB.Model(&models.Token{}).
-			Where("client_id = ?", clientID).
-			Update("redirect_uris", updated).Error; err != nil {
+		if err := models.UpdateRedirectURIs(clientID, &updated); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update redirect URIs"})
 			return
 		}

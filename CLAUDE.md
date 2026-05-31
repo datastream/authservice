@@ -77,6 +77,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 | Task | Command |
 |------|---------|
+| **Generate SQL code** | `sqlc generate` |
 | **Run the service** (default config file `config.json`) | `go run ./cmd/oauthservice/main.go -c config.json` |
 | **Run the service** with a custom config file | `go run ./cmd/oauthservice/main.go -c <path/to/your/config.json>` |
 | **Build a binary** (output `authservice`) | `go build -o authservice ./cmd/oauthservice` |
@@ -87,7 +88,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | **Check module dependencies** | `go mod tidy` |
 | **Update dependencies** | `go get -u ./... && go mod tidy` |
 
-> **Note**: The project does not include a `Makefile`; the above commands are the canonical way to build, run, and test the code.
+> **Note**: The project uses `sqlc` to generate type-safe database code from `.sql` files. Run `sqlc generate` before building. The project does not include a `Makefile`; the above commands are the canonical way to build, run, and test the code.
 
 ## High‑Level Architecture
 

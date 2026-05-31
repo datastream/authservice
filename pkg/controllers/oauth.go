@@ -270,7 +270,7 @@ func (o *OAuthController) UserinfoEmails(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch user profile"})
 		return
 	}
-	email := ProfileEmail{Email: user.Email, Primary: true, Verified: true}
+	email := ProfileEmail{Email: *user.Email, Primary: true, Verified: true}
 	c.JSON(http.StatusOK, []ProfileEmail{email})
 }
 

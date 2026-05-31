@@ -1,17 +1,18 @@
 package testutils
 
 import (
-    "github.com/gin-gonic/gin"
-    "github.com/datastream/authservice/pkg/controllers"
     "bytes"
+    "database/sql"
     "encoding/json"
     "net/http"
     "net/http/httptest"
     "testing"
 
+    "github.com/gin-gonic/gin"
     "github.com/datastream/authservice/pkg/core"
+    "github.com/datastream/authservice/pkg/controllers"
+    "github.com/datastream/authservice/pkg/db"
     "github.com/datastream/authservice/pkg/models"
-    "gorm.io/gorm"
 )
 
 // LoadTestService loads the AuthService using the test config and initializes DB and OAuth server.
@@ -99,14 +100,16 @@ func PerformRequest(r http.Handler, method, path string, body interface{}, heade
     return w
 }
 
-// CreateTestUser creates a user directly via GORM for authentication tests.
-func CreateTestUser(t *testing.T, db *gorm.DB, username, password string) {
+// CreateTestUser creates a user directly via sqlc for authentication tests.
+func CreateTestUser(t *testing.T, conn *sql.DB, username, password string) {
     t.Helper()
-    u := models.User{Username: username}
+    // Set up the querier for the models package
+    models.SetQueries(db.New(conn))
+    u := models.NewUser(username, "")
     if err := u.GenHashedPassword(password); err != nil {
         t.Fatalf("failed to set password: %v", err)
     }
-    if err := db.Create(&u).Error; err != nil {
+    if err := u.Save(); err != nil {
         t.Fatalf("failed to create user: %v", err)
     }
 }

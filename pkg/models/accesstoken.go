@@ -1,23 +1,47 @@
 package models
 
 import (
+	"context"
+	"fmt"
 	"time"
 
-	"gorm.io/gorm"
+	"github.com/datastream/authservice/pkg/db"
 )
 
-// Tokens setting
+// AccessToken is an AWS HMAC auth token.
 type AccessToken struct {
-	UserName  string    `json:"userName" gorm:"index"`
-	AccessKey string    `json:"accessKey" gorm:"uniqueIndex:access_key,secret_key"`
-	SecretKey string    `json:"secretKey" gorm:"uniqueIndex:access_key,secret_key"`
-	Describe  string    `json:"describe"`
-	CreatedAt time.Time `json:"createdAt" gorm:"autoCreateTime"`
-	UpdatedAt time.Time `json:"updatedAt" gorm:"autoUpdateTime"`
-	DeletedAt gorm.DeletedAt
-	ID        int `json:"id" gorm:"primaryKey"`
+	ID        int32
+	UserName  string
+	AccessKey string
+	SecretKey string
+	Describe  *string
+	CreatedAt time.Time
+	UpdatedAt time.Time
+	DeletedAt *time.Time
 }
 
-func (t *AccessToken) FindByAccessKey(ak string) error {
-	return DB.Where("access_key = ?", ak).First(t).Error
+// FindByAccessKey finds an access token by access key.
+func (a *AccessToken) FindByAccessKey(ak string) error {
+	if querier == nil {
+		return fmt.Errorf("models: database queries not initialized")
+	}
+	t, err := querier.GetAccessTokenByAccessKey(context.Background(), ak)
+	if err != nil {
+		return err
+	}
+	*a = toAccessToken(t)
+	return nil
+}
+
+func toAccessToken(t db.AccessToken) AccessToken {
+	return AccessToken{
+		ID:        t.ID,
+		UserName:  t.UserName,
+		AccessKey: t.AccessKey,
+		SecretKey: t.SecretKey,
+		Describe:  db.NullStringToString(t.Describe),
+		CreatedAt: t.CreatedAt,
+		UpdatedAt: t.UpdatedAt,
+		DeletedAt: db.NullTimeToTimePtr(t.DeletedAt),
+	}
 }

@@ -2,122 +2,137 @@ package models
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/base64"
-	"errors"
+	"fmt"
 	"time"
 
-	"github.com/go-oauth2/oauth2/v4"
-	"github.com/go-oauth2/oauth2/v4/models"
-	"gorm.io/gorm"
+	"github.com/datastream/authservice/pkg/db"
 )
 
-// Tokens setting
+// Token is an OAuth client.
 type Token struct {
-	UserID       string    `json:"userID" gorm:"index"`
-	ClientID     string    `json:"clientID" gorm:"uniqueIndex:client_id"`
-	ClientSecret string    `json:"-" gorm:"size:256"`
-	Domain       string    `json:"domain"`
-	Public       bool      `json:"public"`
-	Describe     string    `json:"describe"`
-	RedirectURIs string    `json:"redirectURIs" gorm:"size:1024"`
-	CreatedAt    time.Time `json:"createdAt" gorm:"autoCreateTime"`
-	UpdatedAt    time.Time `json:"updatedAt" gorm:"autoUpdateTime"`
-	DeletedAt    gorm.DeletedAt
-	ID           int `json:"id" gorm:"primaryKey"`
+	ID           int32
+	UserID       string
+	ClientID     string
+	ClientSecret string
+	Domain       string
+	Public       bool
+	Describe     *string
+	RedirectURIs *string
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+	DeletedAt    *time.Time
 }
 
-// save token
-func (t *Token) Save() error {
-	// generate client ID and secret if not set
-	var err error
-	if t.ClientID == "" {
-		t.ClientID, err = GenerateRandomString(32)
+// FindTokenByClientID finds a token by client ID.
+func FindTokenByClientID(id string) (*Token, error) {
+	if querier == nil {
+		return nil, fmt.Errorf("models: database queries not initialized")
 	}
+	t, err := querier.GetTokenByClientID(context.Background(), id)
 	if err != nil {
-		return err
+		return nil, err
+	}
+	return toToken(&t), nil
+}
+
+// FindTokensByUserID finds tokens by user ID.
+func FindTokensByUserID(userID string) ([]Token, error) {
+	if querier == nil {
+		return nil, fmt.Errorf("models: database queries not initialized")
+	}
+	ts, err := querier.GetTokensByUserID(context.Background(), userID)
+	if err != nil {
+		return nil, err
+	}
+	tokens := make([]Token, len(ts))
+	for i, t := range ts {
+		tokens[i] = *toToken(&t)
+	}
+	return tokens, nil
+}
+
+// FindTokensByDomain finds tokens by domain.
+func FindTokensByDomain(host string) ([]Token, error) {
+	if querier == nil {
+		return nil, fmt.Errorf("models: database queries not initialized")
+	}
+	ts, err := querier.GetTokensByDomain(context.Background(), host)
+	if err != nil {
+		return nil, err
+	}
+	tokens := make([]Token, len(ts))
+	for i, t := range ts {
+		tokens[i] = *toToken(&t)
+	}
+	return tokens, nil
+}
+
+// FindTokensByDisplayDomain finds tokens by display domain.
+func FindTokensByDisplayDomain(domain string) ([]Token, error) {
+	return FindTokensByDomain(domain)
+}
+
+// Save persists the token (INSERT).
+func (t *Token) Save() error {
+	if querier == nil {
+		return fmt.Errorf("models: database queries not initialized")
+	}
+	// Generate IDs if not set
+	if t.ClientID == "" {
+		id, err := db.GenerateRandomString(32)
+		if err != nil {
+			return err
+		}
+		t.ClientID = id
 	}
 	if t.ClientSecret == "" {
-		t.ClientSecret, err = GenerateRandomString(64)
+		secret, err := db.GenerateRandomString(64)
+		if err != nil {
+			return err
+		}
+		t.ClientSecret = secret
 	}
-	if err != nil {
-		return err
-	}
-	return DB.FirstOrCreate(t, Token{ClientID: t.ClientID}).Error
+	return querier.CreateToken(context.Background(), db.CreateTokenParams{
+		UserID:       t.UserID,
+		ClientID:     t.ClientID,
+		ClientSecret: t.ClientSecret,
+		Domain:       t.Domain,
+		Public:       t.Public,
+		RedirectUris: db.ToNullString(t.RedirectURIs),
+	})
 }
 
-func GenerateRandomString(n int) (string, error) {
-	// Create a slice of n random bytes
-	b := make([]byte, n)
-	_, err := rand.Read(b)
-	if err != nil {
-		return "", errors.New("failed to generate random string")
-	}
-
-	// Optionally, you can base64 encode the result if you want a printable string
-	// (but you can also just return raw bytes or use a different encoding).
-	return base64.URLEncoding.EncodeToString(b)[:n], nil
-}
-
-// delete token
+// Delete removes the token.
 func (t *Token) Delete() error {
-	return DB.Delete(t).Error
+	if querier == nil {
+		return fmt.Errorf("models: database queries not initialized")
+	}
+	return querier.DeleteToken(context.Background(), t.ClientID)
 }
 
-type ClientStore struct{}
-
-// GetByID according to the ID for the client information
-func (c *ClientStore) GetByID(ctx context.Context, id string) (oauth2.ClientInfo, error) {
-	var token Token
-	result := DB.Where("client_id = ?", id).First(&token)
-	if result.Error != nil {
-		return nil, result.Error
+// UpdateRedirectURIs atomically updates redirect URIs.
+func UpdateRedirectURIs(clientID string, uris *string) error {
+	if querier == nil {
+		return fmt.Errorf("models: database queries not initialized")
 	}
-	return &models.Client{
-		ID:     token.ClientID,
-		Secret: token.ClientSecret,
-		Domain: token.Domain,
-		UserID: token.UserID,
-		Public: token.Public,
-	}, nil
+	return querier.UpdateRedirectURIs(context.Background(), db.UpdateRedirectURIsParams{
+		ClientID:     clientID,
+		RedirectUris: db.ToNullString(uris),
+	})
 }
 
-// FindTokensByUserID finds tokens by user ID
-func FindTokensByUserID(userID string) ([]Token, error) {
-	var tokens []Token
-	result := DB.Where("user_id = ?", userID).Find(&tokens)
-	if result.Error != nil {
-		return nil, result.Error
+func toToken(t *db.Token) *Token {
+	return &Token{
+		ID:           t.ID,
+		UserID:       t.UserID,
+		ClientID:     t.ClientID,
+		ClientSecret: t.ClientSecret,
+		Domain:       t.Domain,
+		Public:       t.Public,
+		Describe:     db.NullStringToString(t.Describe),
+		RedirectURIs: db.NullStringToString(t.RedirectUris),
+		CreatedAt:    t.CreatedAt,
+		UpdatedAt:    t.UpdatedAt,
+		DeletedAt:    db.NullTimeToTimePtr(t.DeletedAt),
 	}
-	return tokens, nil
-}
-
-// FindTokenByClientID finds a token by client ID
-func FindTokenByClientID(clientID string) (*Token, error) {
-	var token Token
-	result := DB.Where("client_id = ?", clientID).First(&token)
-	if result.Error != nil {
-		return nil, result.Error
-	}
-	return &token, nil
-}
-
-// FindTokensByDomain finds tokens where domain matches a URL host
-func FindTokensByDomain(host string) ([]Token, error) {
-	var tokens []Token
-	result := DB.Where("domain = ?", host).Find(&tokens)
-	if result.Error != nil {
-		return nil, result.Error
-	}
-	return tokens, nil
-}
-
-// FindTokensByDisplayDomain finds tokens where domain matches a display name
-func FindTokensByDisplayDomain(domain string) ([]Token, error) {
-	var tokens []Token
-	result := DB.Where("domain = ?", domain).Find(&tokens)
-	if result.Error != nil {
-		return nil, result.Error
-	}
-	return tokens, nil
 }

@@ -63,10 +63,7 @@ func SignupAPI(c *gin.Context) {
 		return
 	}
 
-	user := models.User{
-		Username: postForm.Username,
-		Email:    postForm.Email,
-	}
+	user := models.NewUser(postForm.Username, postForm.Email)
 	user.GenHashedPassword(postForm.Password)
 	if err := user.Save(); err != nil {
 		c.JSON(http.StatusConflict, gin.H{"error": "Username already exists"})
