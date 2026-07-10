@@ -195,6 +195,33 @@ Shell-based reference implementation using curl, plus platform-specific integrat
 
 See [mobile/README.md](mobile/README.md) for details.
 
+### [cli/](cli/) — Go Command-Line Client
+
+A Go CLI for authenticating and managing OAuth client tokens:
+- Session-based authentication via `POST /login`
+- User profile lookup via `/userinfo`
+- Token CRUD: list, create, revoke OAuth client tokens
+- File-based credential cache (`~/.authservice/creds.json`)
+
+**Usage:**
+
+```bash
+# Build and run
+cd examples/cli
+go build -o authcli .
+
+# Authenticate
+./authcli -s http://localhost:8080 login johndoe secret
+
+# View profile
+./authcli -s http://localhost:8080 me
+
+# Manage OAuth client tokens
+./authcli -s http://localhost:8080 tokens list
+./authcli -s http://localhost:8080 tokens create -d "my-app"
+./authcli -s http://localhost:8080 tokens revoke <client-id>
+```
+
 ## Verifying Examples
 
 These examples are written against the current server implementation. If you encounter discrepancies, verify against the live server endpoints listed in the OpenID discovery document:

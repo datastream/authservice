@@ -145,6 +145,10 @@ func (a *AuthService) SetServerHandlers() {
 
 	a.Server.SetAllowedResponseType(oauth2.Code)
 	a.Server.SetUserAuthorizationHandler(userAuthorizeHandler)
+
+	// Password grant — reuse the same username/password check as the
+	// login handler so existing users can authenticate via OAuth.
+	a.Server.SetPasswordAuthorizationHandler(passwordAuthorizationHandler)
 	a.Server.SetInternalErrorHandler(func(err error) (re *errors.Response) {
 		log.Println("Internal Error:", err.Error())
 		return
@@ -152,6 +156,16 @@ func (a *AuthService) SetServerHandlers() {
 	a.Server.SetResponseErrorHandler(func(re *errors.Response) {
 		log.Println("Response Error:", re.Error.Error())
 	})
+}
+
+// passwordAuthorizationHandler looks up a user by credentials and returns the username.
+func passwordAuthorizationHandler(_ context.Context, _ string, username, password string) (userID string, err error) {
+	u, lookupErr := models.FindUserByUsername(username)
+	if lookupErr != nil || u.CheckPassword(password) != nil {
+		log.Println("[password-grant] Invalid credentials for:", username, lookupErr)
+		return "", errors.ErrAccessDenied
+	}
+	return username, nil
 }
 
 func (a *AuthService) validateURI(baseURI, redirectURI string) error {
