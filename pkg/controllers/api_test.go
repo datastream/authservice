@@ -27,11 +27,6 @@ func TestHealthEndpoint(t *testing.T) {
     _ = svc
 }
 
-func TestLoginPage_Unauthenticated(t *testing.T) {
-    _, router := testutils.LoadTestService(t)
-    resp := testutils.PerformRequest(router, "GET", "/login", nil, nil)
-    assert.Equal(t, http.StatusOK, resp.Code)
-}
 
 func TestCreateAndListToken(t *testing.T) {
     svc, router := testutils.LoadTestService(t)

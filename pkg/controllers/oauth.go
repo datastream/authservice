@@ -26,34 +26,6 @@ func NewOAuthController(srv *server.Server) *OAuthController {
 	return &OAuthController{Srv: srv}
 }
 
-// GET /oauth/authorize redirects to the Vue SPA consent page.
-// If not authenticated, redirects to /login.
-func AuthPage(c *gin.Context) {
-	// Check session first
-	_, ok, err := middleware.GetLoggedInUserID(c)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-	if !ok {
-		// Not logged in - redirect to /login with preserved query params
-		query := c.Request.URL.RawQuery
-		if query != "" {
-			c.Redirect(http.StatusFound, "/login?"+query)
-		} else {
-			c.Redirect(http.StatusFound, "/login")
-		}
-		return
-	}
-	// Authenticated - redirect to Vue SPA consent page
-	query := c.Request.URL.RawQuery
-	if query != "" {
-		c.Redirect(http.StatusFound, "/consent?"+query)
-	} else {
-		c.Redirect(http.StatusFound, "/consent")
-	}
-}
-
 // AuthorizeApprove is a JSON API endpoint for programmatic consent approval.
 // Used by the Vue SPA and mobile apps to approve OAuth authorization requests.
 func (o *OAuthController) AuthorizeApprove(c *gin.Context) {
@@ -128,11 +100,12 @@ func (o *OAuthController) Login(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	oldStore, err := session.Start(c.Request.Context(), c.Writer, c.Request)
+	store, err := session.Start(c.Request.Context(), c.Writer, c.Request)
 	if err != nil {
 		middleware.Fail(c, http.StatusInternalServerError, err.Error())
 		return
 	}
+
 	// check user password
 	user, err := models.FindUserByUsername(postForm.Username)
 	if err != nil || user.CheckPassword(postForm.Password) != nil {
@@ -142,18 +115,9 @@ func (o *OAuthController) Login(c *gin.Context) {
 		return
 	}
 
-	oldStore.Flush()
-	if err = oldStore.Save(); err != nil {
-		middleware.Fail(c, http.StatusInternalServerError, err.Error())
-		return
-	}
-	newStore, err := session.Start(c.Request.Context(), c.Writer, c.Request)
-	if err != nil {
-		middleware.Fail(c, http.StatusInternalServerError, err.Error())
-		return
-	}
-	newStore.Set("LoggedInUserID", postForm.Username)
-	if err = newStore.Save(); err != nil {
+	// Regenerate session to prevent session fixation
+	store.Flush()
+	if err = store.Save(); err != nil {
 		middleware.Fail(c, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -169,7 +133,7 @@ func (o *OAuthController) Login(c *gin.Context) {
 }
 
 func (o *OAuthController) OAuthHandler(c *gin.Context) {
-	// Explicit session check for defense-in-depth (AuthPage does this for GET).
+	// Explicit session check for defense-in-depth.
 	// The go-oauth2 library also checks the session internally via userAuthorizeHandler,
 	// but we check here first so we return a consistent JSON error instead of
 	// relying on the library's error formatting.
@@ -194,28 +158,6 @@ func (o *OAuthController) TokenHandler(c *gin.Context) {
 	if err := o.Srv.HandleTokenRequest(c.Writer, c.Request); err != nil {
 		middleware.Fail(c, http.StatusInternalServerError, err.Error())
 	}
-}
-
-func (o *OAuthController) TestHandler(c *gin.Context) {
-	token, err := o.Srv.ValidationBearerToken(c.Request)
-	if err != nil {
-		// RFC 7662 §2.1: introspection endpoint always returns 200
-		c.JSON(http.StatusOK, gin.H{
-			"active": false,
-		})
-		return
-	}
-
-	createdAt := token.GetAccessCreateAt()
-	expiresIn := token.GetAccessExpiresIn()
-	c.JSON(http.StatusOK, gin.H{
-		"active":    true,
-		"scope":     token.GetScope(),
-		"client_id": token.GetClientID(),
-		"user":      token.GetUserID(),
-		"iat":       createdAt.Unix(),
-		"exp":       createdAt.Add(expiresIn).Unix(),
-	})
 }
 
 // Profile shows the profile page

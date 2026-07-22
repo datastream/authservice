@@ -1,1 +1,0 @@
-import{d as s,o as a,c as o,t as r,n as t,_ as c}from"./index-DvE0nrVD.js";const n={key:0,class:"error-message"},m=s({__name:"ErrorMessage",props:{message:{}},setup(e){return(_,p)=>e.message?(a(),o("div",n,r(e.message),1)):t("",!0)}}),g=c(m,[["__scopeId","data-v-896f82e1"]]);export{g as E};

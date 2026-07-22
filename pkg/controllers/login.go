@@ -4,16 +4,15 @@ package controllers
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"strings"
 	"time"
 
-	"github.com/datastream/authservice/pkg/middleware"
 	"github.com/datastream/authservice/pkg/models"
 	sign4 "github.com/datastream/aws"
 	"github.com/gin-gonic/gin"
 	"github.com/go-session/session/v3"
-	"log"
 )
 
 // LoginForm represents the login form fields.
@@ -22,56 +21,6 @@ type LoginForm struct {
 	Password string `form:"password" binding:"required"`
 }
 
-// LoginPageData holds data for rendering the login page.
-type LoginPageData struct {
-	Domain   string
-	LoginURL string
-}
-
-// LoginPage serves the login page.
-func LoginPage(c *gin.Context) {
-	// If already logged in, redirect to /userinfo.
-	_, ok, err := middleware.GetLoggedInUserID(c)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-	if ok {
-		c.Header("Location", "/userinfo")
-		c.JSON(http.StatusFound, gin.H{"message": "Logged in", "redirect": "/auth"})
-		return
-	}
-	token, err := models.FindTokenByClientID(c.Query("client_id"))
-	loginData := LoginPageData{
-		LoginURL: c.Request.RequestURI,
-		Domain:   c.Request.Host,
-	}
-	if err == nil {
-		loginData.Domain = token.Domain
-	}
-	if err := middleware.ServeStaticHTML(c, "login.html"); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load login page"})
-		return
-	}
-}
-
-// Logout logs out the current user by clearing their session.
-func Logout(c *gin.Context) {
-	store, err := session.Start(c.Request.Context(), c.Writer, c.Request)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-	store.Flush()
-	err = store.Save()
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-	// redirect to /login
-	c.Header("Location", "/login")
-	c.JSON(http.StatusFound, gin.H{"message": "Logout successful", "redirect": "/login"})
-}
 
 // TokenAuthRequest represents the authentication request body.
 type TokenAuthRequest struct {

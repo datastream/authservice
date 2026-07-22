@@ -72,8 +72,6 @@ func main() {
 		)
 	}
 
-	r.Static("/static", "./static")
-
 	// SPA-facing APIs (JSON only)
 	r.POST("/api/login", middleware.LoginRateLimit(), controllers.LoginAPI)
 	r.POST("/api/signup", controllers.SignupAPI)
@@ -86,18 +84,15 @@ func main() {
 	r.DELETE("/api/tokens/:id", controllers.TokenRevoke)
 
 	// OAuth 2.0 endpoints (unchanged — for external clients)
-	r.GET("/logout", controllers.Logout)
 	r.GET("/.well-known/openid-configuration", controllers.Config)
 
 	oauth := controllers.NewOAuthController(srv.Server)
-	r.GET("/oauth/authorize", controllers.AuthPage)
 	r.POST("/oauth/authorize", oauth.OAuthHandler)
 	r.POST("/oauth/authorize/approve", oauth.AuthorizeApprove)
 	r.POST("/login", middleware.LoginRateLimit(), oauth.Login)
 	r.POST("/oauth/token", oauth.TokenHandler)
 	r.GET("/userinfo", oauth.Userinfo)
 	r.GET("/userinfo/emails", oauth.UserinfoEmails)
-	r.GET("/test", oauth.TestHandler)
 	r.POST("/oauth/revoke", oauth.RevokeToken)
 
 	// OpenFGA endpoints (optional - requires FGA API token in config)
@@ -119,8 +114,7 @@ func main() {
 		modelauth.DELETE("/fga/models/:id/tuples", fgaCtrl.DeleteTuples)
 	}
 
-	// SPA catch-all: serve index.html for unmatched GET routes.
-	// OPTIONS requests get CORS headers so mobile apps can preflight.
+	// CORS preflight only: return 404 for unknown routes.
 	r.NoRoute(func(c *gin.Context) {
 		if c.Request.Method == http.MethodOptions {
 			for _, origin := range srv.Origins {
@@ -132,11 +126,7 @@ func main() {
 			c.AbortWithStatus(http.StatusNoContent)
 			return
 		}
-		if c.Request.Method != http.MethodGet {
-			c.Next()
-			return
-		}
-		c.File("./static/index.html")
+		c.AbortWithStatus(http.StatusNotFound)
 	})
 
 	r.Run(srv.ListenAddress)

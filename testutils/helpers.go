@@ -57,8 +57,6 @@ func LoadTestService(t *testing.T) (*core.AuthService, *gin.Engine) {
     // For brevity we only register a subset needed for tests.
     // Additional routes can be added as needed.
     // Register routes – using the same setup as main.go
-    r.GET("/login", controllers.LoginPage)
-    r.GET("/logout", controllers.Logout)
     r.GET("/api/tokens", controllers.TokensList)
     r.POST("/api/tokens", controllers.ClientTokensCreate)
     r.DELETE("/api/tokens/:id", controllers.TokenRevoke)
@@ -70,13 +68,12 @@ func LoadTestService(t *testing.T) (*core.AuthService, *gin.Engine) {
     r.GET("/api/me", controllers.MeAPI)
     // OAuth routes
     oauth := controllers.NewOAuthController(svc.Server)
-    r.GET("/oauth/authorize", controllers.AuthPage)
     r.POST("/oauth/authorize", oauth.OAuthHandler)
+    r.POST("/oauth/authorize/approve", oauth.AuthorizeApprove)
     r.POST("/login", oauth.Login)
     r.POST("/oauth/token", oauth.TokenHandler)
     r.GET("/userinfo", oauth.Userinfo)
     r.GET("/userinfo/emails", oauth.UserinfoEmails)
-    r.GET("/test", oauth.OAuthMiddleware(), oauth.TestHandler)
     r.POST("/oauth/revoke", oauth.RevokeToken)
 
     return svc, r

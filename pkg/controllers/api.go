@@ -10,6 +10,13 @@ import (
 	"github.com/go-session/session/v3"
 )
 
+// RegisterForm represents the registration form fields.
+type RegisterForm struct {
+	Username string `form:"username" json:"username" binding:"required"`
+	Email    string `form:"email" json:"email" binding:"required,email"`
+	Password string `form:"password" binding:"required"`
+}
+
 // restartSession resets the session to prevent session fixation attacks.
 // The setFn callback configures the new session store before it is saved.
 func restartSession(c *gin.Context, setFn func(store session.Store)) error {
