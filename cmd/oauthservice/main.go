@@ -80,7 +80,6 @@ func main() {
 
 	r.GET("/api/tokens", controllers.TokensList)
 	r.POST("/api/tokens", controllers.ClientTokensCreate)
-	r.GET("/api/tokens/redirectUris", controllers.TokenRedirectURIs)
 	r.DELETE("/api/tokens/:id", controllers.TokenRevoke)
 
 	// OAuth 2.0 endpoints (unchanged — for external clients)

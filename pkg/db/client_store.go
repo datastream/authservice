@@ -32,11 +32,11 @@ func (q *Queries) GetClientByID(ctx context.Context, id string) (*models.Client,
 		return nil, err
 	}
 	return &models.Client{
-		ID:     token.ClientID,
-		Secret: token.ClientSecret,
-		Domain: token.Domain,
-		UserID: token.UserID,
-		Public: token.Public,
+		ID:     InterfaceToString(token.ClientID),
+		Secret: InterfaceToString(token.ClientSecret),
+		Domain: InterfaceToString(token.Domain),
+		UserID: InterfaceToString(token.UserID),
+		Public: Int64ToBool(token.Public),
 	}, nil
 }
 

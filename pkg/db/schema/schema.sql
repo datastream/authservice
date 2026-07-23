@@ -1,39 +1,39 @@
-CREATE TABLE users (
-    id SERIAL PRIMARY KEY,
-    username VARCHAR(255) NOT NULL UNIQUE,
-    hashed_password BYTEA NOT NULL,
-    email VARCHAR(255),
-    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    deleted_at TIMESTAMP
+CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT(255) NOT NULL UNIQUE,
+    hashed_password BLOB NOT NULL,
+    email TEXT(255),
+    created_at DATETIME NOT NULL,
+    updated_at DATETIME NOT NULL,
+    deleted_at DATETIME
 );
 
-CREATE TABLE tokens (
-    id SERIAL PRIMARY KEY,
-    user_id VARCHAR(255) NOT NULL,
-    client_id VARCHAR(255) NOT NULL UNIQUE,
-    client_secret VARCHAR(256) NOT NULL,
-    domain VARCHAR(255) NOT NULL,
-    public BOOLEAN NOT NULL DEFAULT FALSE,
+CREATE TABLE IF NOT EXISTS tokens (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT(255) NOT NULL,
+    client_id TEXT(255) NOT NULL UNIQUE,
+    client_secret TEXT(256) NOT NULL,
+    domain TEXT(255) NOT NULL,
+    public INTEGER NOT NULL DEFAULT 0,
     describe TEXT,
     redirect_uris TEXT,
-    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    deleted_at TIMESTAMP
+    created_at DATETIME NOT NULL,
+    updated_at DATETIME NOT NULL,
+    deleted_at DATETIME
 );
 
-CREATE INDEX idx_tokens_user_id ON tokens(user_id);
+CREATE INDEX IF NOT EXISTS idx_tokens_user_id ON tokens(user_id);
 
-CREATE TABLE access_tokens (
-    id SERIAL PRIMARY KEY,
-    user_name VARCHAR(255) NOT NULL,
-    access_key VARCHAR(255) NOT NULL,
-    secret_key VARCHAR(255) NOT NULL,
+CREATE TABLE IF NOT EXISTS access_tokens (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_name TEXT(255) NOT NULL,
+    access_key TEXT(255) NOT NULL,
+    secret_key TEXT(255) NOT NULL,
     describe TEXT,
-    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    deleted_at TIMESTAMP
+    created_at DATETIME NOT NULL,
+    updated_at DATETIME NOT NULL,
+    deleted_at DATETIME
 );
 
-CREATE UNIQUE INDEX idx_access_tokens_access_key_secret_key ON access_tokens(access_key, secret_key);
-CREATE INDEX idx_access_tokens_user_name ON access_tokens(user_name);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_access_tokens_access_key_secret_key ON access_tokens(access_key, secret_key);
+CREATE INDEX IF NOT EXISTS idx_access_tokens_user_name ON access_tokens(user_name);

@@ -35,10 +35,10 @@ func (a *AccessToken) FindByAccessKey(ak string) error {
 
 func toAccessToken(t db.AccessToken) AccessToken {
 	return AccessToken{
-		ID:        t.ID,
-		UserName:  t.UserName,
-		AccessKey: t.AccessKey,
-		SecretKey: t.SecretKey,
+		ID:        int32(t.ID),
+		UserName:  db.InterfaceToString(t.UserName),
+		AccessKey: db.InterfaceToString(t.AccessKey),
+		SecretKey: db.InterfaceToString(t.SecretKey),
 		Describe:  db.NullStringToString(t.Describe),
 		CreatedAt: t.CreatedAt,
 		UpdatedAt: t.UpdatedAt,

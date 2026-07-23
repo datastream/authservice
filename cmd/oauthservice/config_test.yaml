@@ -1,9 +1,9 @@
 listenAddress: ":9096"
 domain: "http://localhost"
 logFile: "authserver_test.log"
-dbFile: "authserver_test.db"
+dbFile: "/tmp/test_oauth_tokens"
 databaseType: sqlite
-databaseURI: test_authserver.db
+databaseURI: "/tmp/test_authserver.db"
 sessionName: "test_session"
 redis: ""
 redisPassword: ""

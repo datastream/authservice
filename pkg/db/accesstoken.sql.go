@@ -12,10 +12,10 @@ import (
 const getAccessTokenByAccessKey = `-- name: GetAccessTokenByAccessKey :one
 SELECT id, user_name, access_key, secret_key, describe, created_at, updated_at, deleted_at
 FROM access_tokens
-WHERE access_key = $1
+WHERE access_key = ?
 `
 
-func (q *Queries) GetAccessTokenByAccessKey(ctx context.Context, accessKey string) (AccessToken, error) {
+func (q *Queries) GetAccessTokenByAccessKey(ctx context.Context, accessKey interface{}) (AccessToken, error) {
 	row := q.db.QueryRowContext(ctx, getAccessTokenByAccessKey, accessKey)
 	var i AccessToken
 	err := row.Scan(
@@ -34,12 +34,12 @@ func (q *Queries) GetAccessTokenByAccessKey(ctx context.Context, accessKey strin
 const getAccessTokenByAccessKeyAndSecretKey = `-- name: GetAccessTokenByAccessKeyAndSecretKey :one
 SELECT id, user_name, access_key, secret_key, describe, created_at, updated_at, deleted_at
 FROM access_tokens
-WHERE access_key = $1 AND secret_key = $2
+WHERE access_key = ? AND secret_key = ?
 `
 
 type GetAccessTokenByAccessKeyAndSecretKeyParams struct {
-	AccessKey string
-	SecretKey string
+	AccessKey interface{}
+	SecretKey interface{}
 }
 
 func (q *Queries) GetAccessTokenByAccessKeyAndSecretKey(ctx context.Context, arg GetAccessTokenByAccessKeyAndSecretKeyParams) (AccessToken, error) {

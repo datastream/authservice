@@ -97,7 +97,7 @@ func (t *Token) Save() error {
 		ClientID:     t.ClientID,
 		ClientSecret: t.ClientSecret,
 		Domain:       t.Domain,
-		Public:       t.Public,
+		Public:       db.BoolToInt64(t.Public),
 		RedirectUris: db.ToNullString(t.RedirectURIs),
 	})
 }
@@ -123,12 +123,12 @@ func UpdateRedirectURIs(clientID string, uris *string) error {
 
 func toToken(t *db.Token) *Token {
 	return &Token{
-		ID:           t.ID,
-		UserID:       t.UserID,
-		ClientID:     t.ClientID,
-		ClientSecret: t.ClientSecret,
-		Domain:       t.Domain,
-		Public:       t.Public,
+		ID:           int32(t.ID),
+		UserID:       db.InterfaceToString(t.UserID),
+		ClientID:     db.InterfaceToString(t.ClientID),
+		ClientSecret: db.InterfaceToString(t.ClientSecret),
+		Domain:       db.InterfaceToString(t.Domain),
+		Public:       db.Int64ToBool(t.Public),
 		Describe:     db.NullStringToString(t.Describe),
 		RedirectURIs: db.NullStringToString(t.RedirectUris),
 		CreatedAt:    t.CreatedAt,

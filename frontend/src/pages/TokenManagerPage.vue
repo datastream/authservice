@@ -16,7 +16,6 @@ const success = ref('')
 const newDomain = ref('')
 const newPublic = ref(false)
 const newDescribe = ref('')
-const newUser = ref('')
 
 const validateForm = () => {
   if (!newDomain.value.trim()) {
@@ -47,15 +46,11 @@ const handleCreate = async () => {
       public: newPublic.value,
       describe: newDescribe.value || undefined,
     }
-    if (newUser.value.trim()) {
-      body.userId = newUser.value
-    }
     const result = await tokenApi.create(body)
     success.value = `Token created: ${result.clientId}`
     newDomain.value = ''
     newPublic.value = false
     newDescribe.value = ''
-    newUser.value = ''
     await fetchTokens()
   } catch (e: any) {
     error.value = e.message || 'Failed to create token'
@@ -115,16 +110,6 @@ onMounted(fetchTokens)
             rows="3"
             placeholder="Enter description (optional)"
           ></textarea>
-        </div>
-
-        <div class="form-group">
-          <label for="userId">User ID</label>
-          <input
-            id="userId"
-            v-model="newUser"
-            type="text"
-            placeholder="Leave empty for your own user (optional)"
-          />
         </div>
 
         <button type="submit" class="btn btn-primary" :disabled="creating">

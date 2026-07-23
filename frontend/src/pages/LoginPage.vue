@@ -22,10 +22,13 @@ async function handleLogin() {
   loading.value = true
   error.value = ''
   try {
-    await login(username.value, password.value)
-    // Redirect to OAuth authorize if client_id is in query, otherwise to token manager
-    const target = route.query.client_id ? `/oauth/authorize${window.location.search}` : '/tokens'
-    router.push(target)
+    const search = window.location.search.slice(1) // strip leading '?'
+    const redirect = await login(username.value, password.value, search || undefined)
+    if (redirect) {
+      window.location.href = redirect
+    } else {
+      router.push('/tokens')
+    }
   } catch (e: any) {
     error.value = e.message || 'Login failed'
   } finally {

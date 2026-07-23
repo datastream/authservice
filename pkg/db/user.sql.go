@@ -7,18 +7,17 @@ package db
 
 import (
 	"context"
-	"database/sql"
 )
 
 const createUser = `-- name: CreateUser :exec
 INSERT INTO users (username, hashed_password, email, created_at, updated_at)
-VALUES ($1, $2, $3, NOW(), NOW())
+VALUES (?, ?, ?, datetime('now'), datetime('now'))
 `
 
 type CreateUserParams struct {
-	Username       string
+	Username       interface{}
 	HashedPassword []byte
-	Email          sql.NullString
+	Email          interface{}
 }
 
 func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) error {
@@ -29,10 +28,10 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) error {
 const getUserByID = `-- name: GetUserByID :one
 SELECT id, username, hashed_password, email, created_at, updated_at, deleted_at
 FROM users
-WHERE id = $1
+WHERE id = ?
 `
 
-func (q *Queries) GetUserByID(ctx context.Context, id int32) (User, error) {
+func (q *Queries) GetUserByID(ctx context.Context, id int64) (User, error) {
 	row := q.db.QueryRowContext(ctx, getUserByID, id)
 	var i User
 	err := row.Scan(
@@ -50,10 +49,10 @@ func (q *Queries) GetUserByID(ctx context.Context, id int32) (User, error) {
 const getUserByUsername = `-- name: GetUserByUsername :one
 SELECT id, username, hashed_password, email, created_at, updated_at, deleted_at
 FROM users
-WHERE username = $1
+WHERE username = ?
 `
 
-func (q *Queries) GetUserByUsername(ctx context.Context, username string) (User, error) {
+func (q *Queries) GetUserByUsername(ctx context.Context, username interface{}) (User, error) {
 	row := q.db.QueryRowContext(ctx, getUserByUsername, username)
 	var i User
 	err := row.Scan(

@@ -122,14 +122,14 @@ func (o *OAuthController) Login(c *gin.Context) {
 		return
 	}
 
+	redirect := "/userinfo"
 	if query := c.Request.URL.RawQuery; len(query) > 0 {
-		c.JSON(http.StatusOK, gin.H{
-			"message":  "Login successful",
-			"redirect": "/oauth/authorize?" + query,
-		})
-	} else {
-		c.JSON(http.StatusOK, gin.H{"message": "Login successful", "redirect": "/userinfo"})
+		redirect = "/oauth/authorize?" + query
 	}
+	c.JSON(http.StatusOK, gin.H{
+		"message":  "Login successful",
+		"redirect": redirect,
+	})
 }
 
 func (o *OAuthController) OAuthHandler(c *gin.Context) {

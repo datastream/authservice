@@ -1,36 +1,47 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
+import { ref, computed, onMounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useAuth } from '@/composables/useAuth'
+import * as tokenApi from '@/api/tokens'
 
 const route = useRoute()
+const router = useRouter()
 const { checkSession } = useAuth()
 
 const loading = ref(true)
+const approving = ref(false)
 const error = ref('')
 const domain = ref('')
 
 const clientId = route.query.client_id as string
 
+// Build form data from query params for the approve endpoint
+const formParams = computed(() => {
+  const params = new URLSearchParams()
+  params.set('client_id', clientId)
+  if (route.query.redirect_uri) params.set('redirect_uri', route.query.redirect_uri as string)
+  if (route.query.state) params.set('state', route.query.state as string)
+  if (route.query.code_challenge) params.set('code_challenge', route.query.code_challenge as string)
+  if (route.query.code_challenge_method) params.set('code_challenge_method', route.query.code_challenge_method as string)
+  if (route.query.scope) params.set('scope', route.query.scope as string)
+  return params
+})
+
 onMounted(async () => {
-  // Check session - if not logged in, Go server's /oauth/authorize handler
-  // will redirect to /login, so we just wait for it
   try {
     const ok = await checkSession()
     if (!ok) {
-      // Not authenticated - let the Go server handle the session check
-      // The Go handler at /oauth/authorize will redirect to /login
+      // Not authenticated — redirect to login with query params preserved
+      error.value = 'Please log in to continue.'
       loading.value = false
+      router.push({ name: 'Login', query: route.query })
       return
     }
     // Try to look up domain for display
     if (clientId) {
       try {
-        const res = await fetch(`/api/tokens/${clientId}`)
-        if (res.ok) {
-          const token = await res.json()
-          domain.value = token.domain || clientId
-        }
+        const token = await tokenApi.getById(clientId)
+        domain.value = token.domain || clientId
       } catch {
         domain.value = clientId
       }
@@ -41,6 +52,35 @@ onMounted(async () => {
     loading.value = false
   }
 })
+
+async function handleApprove() {
+  approving.value = true
+  error.value = ''
+  try {
+    const res = await fetch('/oauth/authorize/approve', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: formParams.value.toString(),
+    })
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      throw new Error(data.error || `Authorization failed (${res.status})`)
+    }
+    // The approve endpoint generates an auth code and returns a 302 redirect.
+    // fetch doesn't follow it automatically, so we read the Location header.
+    const location = res.headers.get('Location')
+    if (location) {
+      window.location.href = location
+    } else {
+      error.value = 'No redirect location returned by server.'
+    }
+  } catch (e: any) {
+    error.value = e.message || 'Authorization failed'
+  } finally {
+    approving.value = false
+  }
+}
 </script>
 
 <template>
@@ -55,11 +95,17 @@ onMounted(async () => {
         The client would like to log in.
       </p>
       <p v-else class="auth-text">Loading...</p>
-      <form v-if="!loading" action="/oauth/authorize" method="POST" class="auth-form">
-        <!-- Preserve query parameters -->
-        <input v-for="(value, key) in route.query" :key="key"
-               type="hidden" :name="key" :value="value" />
-        <button type="submit" class="btn btn-primary">Allow</button>
+      <form v-if="!loading && !error" @submit.prevent="handleApprove" class="auth-form">
+        <input
+          v-for="(value, key) in Object.fromEntries(formParams)"
+          :key="key"
+          type="hidden"
+          :name="key"
+          :value="value"
+        />
+        <button type="submit" class="btn btn-primary" :disabled="approving">
+          {{ approving ? 'Approving...' : 'Allow' }}
+        </button>
       </form>
     </div>
   </div>

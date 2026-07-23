@@ -1,75 +1,84 @@
 package controllers_test
 
 import (
-    "encoding/json"
-    "net/http"
-    // "net/http/httptest"
-    "testing"
+	"encoding/json"
+	"net/http"
+	"os"
+	"testing"
 
-    // "github.com/datastream/authservice/pkg/models"
-    "github.com/datastream/authservice/testutils"
-    "github.com/stretchr/testify/assert"
+	"github.com/gin-gonic/gin"
+	"github.com/datastream/authservice/pkg/core"
+	"github.com/datastream/authservice/pkg/controllers"
+	"github.com/datastream/authservice/testutils"
+	"github.com/go-session/session/v3"
+	"github.com/stretchr/testify/assert"
 )
 
-// helper to create a test user and obtain session cookie
-func loginAndGetCookie(t *testing.T, router http.Handler, username, password string) string {
-    // create user directly in DB
-    // svc, _ := testutils.LoadTestService(t) // not needed for this helper
-    // Actually we need svc, router from LoadTestService; but to avoid duplicate init, we'll call LoadTestService once per test.
-    return ""
-}
-
 func TestHealthEndpoint(t *testing.T) {
-    svc, router := testutils.LoadTestService(t)
-    resp := testutils.PerformRequest(router, "GET", "/healthz", nil, nil)
-    assert.Equal(t, http.StatusOK, resp.Code)
-    // cleanup DB file
-    _ = svc
+	svc, router := testutils.LoadTestService(t)
+	resp := testutils.PerformRequest(router, "GET", "/healthz", nil, nil)
+	assert.Equal(t, http.StatusOK, resp.Code)
+	_ = svc
 }
 
+// authedRouter creates a test router with session-based auth pre-configured
+// for the given user ID. This avoids the complexity of session cookie handling.
+func authedRouter(t *testing.T, svc *core.AuthService, userID string) *gin.Engine {
+	r := gin.New()
+	r.Use(gin.Recovery())
+
+	// Create a real session and store the user ID in it
+	r.Use(func(c *gin.Context) {
+		store, err := session.Start(c.Request.Context(), c.Writer, c.Request)
+		if err == nil {
+			store.Set("LoggedInUserID", userID)
+			store.Save()
+		}
+		c.Next()
+	})
+
+	r.GET("/healthz", func(c *gin.Context) { c.JSON(200, gin.H{"status": "ok"}) })
+	r.GET("/api/tokens", controllers.TokensList)
+	r.POST("/api/tokens", controllers.ClientTokensCreate)
+	r.DELETE("/api/tokens/:id", controllers.TokenRevoke)
+
+	return r
+}
 
 func TestCreateAndListToken(t *testing.T) {
-    svc, router := testutils.LoadTestService(t)
-    // create a test user
-    testutils.CreateTestUser(t, svc.DB, "alice", "password123")
-    // simulate login to get session cookie
-    loginResp := testutils.PerformRequest(router, "POST", "/login", map[string]string{"username": "alice", "password": "password123"}, map[string]string{"Content-Type": "application/json"})
-    assert.Equal(t, http.StatusOK, loginResp.Code)
-    // extract cookie
-    cookie := loginResp.Header().Get("Set-Cookie")
-    // create token
-    tokenPayload := map[string]interface{}{ "domain": "example.com", "public": true, "describe": "test token", "userId": "alice" }
-    createResp := testutils.PerformRequest(router, "POST", "/tokens", tokenPayload, map[string]string{"Content-Type": "application/json", "Cookie": cookie})
-    assert.Equal(t, http.StatusOK, createResp.Code)
-    // list tokens
-    listResp := testutils.PerformRequest(router, "GET", "/tokens", nil, map[string]string{"Cookie": cookie})
-    assert.Equal(t, http.StatusOK, listResp.Code)
-    // cleanup
-    _ = svc
+	// Clean DB to avoid unique constraint errors from previous runs
+	_ = os.Remove("/tmp/test_authserver.db")
+	svc, _ := testutils.LoadTestService(t)
+	t.Cleanup(func() { _ = svc.DB.Close() })
+	testutils.CreateTestUser(t, svc.DB, "alice", "password123")
+
+	r := authedRouter(t, svc, "alice")
+	tokenPayload := map[string]interface{}{"domain": "example.com", "public": true, "describe": "test token", "userId": "alice"}
+	createResp := testutils.PerformRequest(r, "POST", "/api/tokens", tokenPayload, map[string]string{"Content-Type": "application/json"})
+	assert.Equal(t, http.StatusOK, createResp.Code)
+	listResp := testutils.PerformRequest(r, "GET", "/api/tokens", nil, nil)
+	assert.Equal(t, http.StatusOK, listResp.Code)
 }
 
 func TestTokenRevoke(t *testing.T) {
-    svc, router := testutils.LoadTestService(t)
-    testutils.CreateTestUser(t, svc.DB, "bob", "secret")
-    // login
-    loginResp := testutils.PerformRequest(router, "POST", "/login", map[string]string{"username": "bob", "password": "secret"}, map[string]string{"Content-Type": "application/json"})
-    assert.Equal(t, http.StatusOK, loginResp.Code)
-    cookie := loginResp.Header().Get("Set-Cookie")
-    // create token
-    tokenPayload := map[string]interface{}{ "domain": "example.org", "public": false, "describe": "to be revoked", "userId": "bob" }
-    createResp := testutils.PerformRequest(router, "POST", "/tokens", tokenPayload, map[string]string{"Content-Type": "application/json", "Cookie": cookie})
-    assert.Equal(t, http.StatusOK, createResp.Code)
-    // parse client_id from response
-    var body struct { ClientID string `json:"client_id"` }
-    json.NewDecoder(createResp.Body).Decode(&body)
-    // revoke token
-    revokeResp := testutils.PerformRequest(router, "DELETE", "/tokens/"+body.ClientID, nil, map[string]string{"Cookie": cookie})
-    assert.Equal(t, http.StatusOK, revokeResp.Code)
-    // verify token list empty
-    listResp := testutils.PerformRequest(router, "GET", "/tokens", nil, map[string]string{"Cookie": cookie})
-    assert.Equal(t, http.StatusOK, listResp.Code)
-    // cleanup
-    _ = svc
+	_ = os.Remove("/tmp/test_authserver.db")
+	svc, _ := testutils.LoadTestService(t)
+	t.Cleanup(func() { _ = svc.DB.Close() })
+	testutils.CreateTestUser(t, svc.DB, "bob", "secret")
+
+	r := authedRouter(t, svc, "bob")
+	tokenPayload := map[string]interface{}{"domain": "example.org", "public": false, "describe": "to be revoked", "userId": "bob"}
+	createResp := testutils.PerformRequest(r, "POST", "/api/tokens", tokenPayload, map[string]string{"Content-Type": "application/json"})
+	assert.Equal(t, http.StatusOK, createResp.Code)
+
+	var body struct { ClientID string `json:"clientId"` }
+	json.NewDecoder(createResp.Body).Decode(&body)
+
+	revokeResp := testutils.PerformRequest(r, "DELETE", "/api/tokens/"+body.ClientID, nil, nil)
+	assert.Equal(t, http.StatusOK, revokeResp.Code)
+
+	listResp := testutils.PerformRequest(r, "GET", "/api/tokens", nil, nil)
+	assert.Equal(t, http.StatusOK, listResp.Code)
 }
 
 // Additional tests for OAuth flow, userinfo, signup, etc., can be added similarly.

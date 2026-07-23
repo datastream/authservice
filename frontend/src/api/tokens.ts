@@ -1,10 +1,10 @@
 export interface Token {
-  clientID: string
+  clientId: string
   clientSecret: string
   domain: string
   public: boolean
   describe: string
-  userID: string
+  userId: string
 }
 
 export interface TokenForm {
@@ -32,6 +32,15 @@ export async function list(): Promise<Token[]> {
   }
   const data = await res.json()
   return data.tokens || []
+}
+
+export async function getById(clientID: string): Promise<Token> {
+  const res = await fetch(`${BASE}/tokens/${clientID}`, { credentials: 'include' })
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}))
+    throw new Error(data.error || `Failed to fetch token (${res.status})`)
+  }
+  return res.json()
 }
 
 export interface CreateResult {

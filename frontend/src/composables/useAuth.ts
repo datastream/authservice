@@ -30,8 +30,9 @@ export function useAuth() {
     return checkPromise
   }
 
-  async function login(username: string, password: string): Promise<void> {
-    const res = await fetch('/api/login', {
+  async function login(username: string, password: string, search?: string): Promise<string | null> {
+    const url = search ? `/api/login?${search}` : '/api/login'
+    const res = await fetch(url, {
       method: 'POST',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
@@ -41,7 +42,9 @@ export function useAuth() {
       const data = await res.json().catch(() => ({}))
       throw new Error(data.error || `Login failed (${res.status})`)
     }
+    const data = await res.json()
     _username.value = username
+    return data.redirect || null
   }
 
   async function signup(username: string, email: string, password: string): Promise<void> {

@@ -1,6 +1,6 @@
 version: "2"
 sql:
-  - engine: "postgresql"
+  - engine: "sqlite"
     queries: "pkg/db/queries"
     schema: "pkg/db/schema"
     gen:

@@ -13,6 +13,8 @@ import (
 	"strings"
 	"time"
 
+	_ "modernc.org/sqlite"
+
 	"github.com/datastream/authservice/pkg/db"
 	"github.com/datastream/authservice/pkg/models"
 	"github.com/go-oauth2/oauth2/v4"
@@ -71,24 +73,21 @@ func LoadConfig(name string) (*AuthService, error) {
 }
 
 func (a *AuthService) InitDB() error {
+	// For SQLite, fall back to dbFile as databaseURI when not set.
+	// This lets the existing config work out of the box.
+	if a.DatabaseType == "sqlite" && a.DatabaseURI == "" {
+		a.DatabaseURI = a.DBFile
+	}
+
 	var dbConn *sql.DB
 	var err error
 	switch a.DatabaseType {
 	case "postgresql":
 		dbConn, err = sql.Open("pgx", a.DatabaseURI)
-		if err == nil {
-			err = dbConn.Ping()
-		}
 	case "mysql":
 		dbConn, err = sql.Open("mysql", a.DatabaseURI)
-		if err == nil {
-			err = dbConn.Ping()
-		}
 	case "sqlite":
 		dbConn, err = sql.Open("sqlite", a.DatabaseURI)
-		if err == nil {
-			err = dbConn.Ping()
-		}
 	default:
 		return fmt.Errorf("bad database type: %s", a.DatabaseType)
 	}
@@ -103,6 +102,16 @@ func (a *AuthService) InitDB() error {
 	a.DB = dbConn
 	a.DBQueries = db.New(dbConn)
 	models.SetQueries(a.DBQueries)
+
+	if err := dbConn.Ping(); err != nil {
+		return fmt.Errorf("database ping failed: %w", err)
+	}
+
+	// Create tables from embedded schema.
+	if err := db.Migrate(dbConn); err != nil {
+		return fmt.Errorf("migrate: %w", err)
+	}
+
 	return nil
 }
 

@@ -6,6 +6,7 @@ import (
     "encoding/json"
     "net/http"
     "net/http/httptest"
+    "strings"
     "testing"
 
     "github.com/gin-gonic/gin"
@@ -77,6 +78,14 @@ func LoadTestService(t *testing.T) (*core.AuthService, *gin.Engine) {
     r.POST("/oauth/revoke", oauth.RevokeToken)
 
     return svc, r
+}
+
+// ExtractSessionCookie parses a Set-Cookie header value and returns just the session cookie name=value.
+func ExtractSessionCookie(setCookie string) string {
+	if idx := strings.IndexByte(setCookie, ';'); idx > 0 {
+		return setCookie[:idx]
+	}
+	return setCookie
 }
 
 // PerformRequest is a helper to execute a request against the provided router.

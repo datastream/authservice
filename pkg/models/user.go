@@ -2,6 +2,7 @@ package models
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"time"
 
@@ -67,11 +68,20 @@ func (u *User) CheckPassword(password string) error {
 }
 
 func dbUserToUser(u db.User) *User {
+	var email *string
+	switch e := u.Email.(type) {
+	case sql.NullString:
+		email = db.NullStringToString(e)
+	case string:
+		email = &e
+	case nil:
+		email = nil
+	}
 	return &User{
-		ID:             u.ID,
-		Username:       u.Username,
+		ID:             int32(u.ID),
+		Username:       db.InterfaceToString(u.Username),
 		HashedPassword: u.HashedPassword,
-		Email:          db.NullStringToString(u.Email),
+		Email:          email,
 		CreatedAt:      u.CreatedAt,
 		UpdatedAt:      u.UpdatedAt,
 		DeletedAt:      db.NullTimeToTimePtr(u.DeletedAt),
