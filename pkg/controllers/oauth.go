@@ -133,21 +133,9 @@ func (o *OAuthController) Login(c *gin.Context) {
 }
 
 func (o *OAuthController) OAuthHandler(c *gin.Context) {
-	// Explicit session check for defense-in-depth.
-	// The go-oauth2 library also checks the session internally via userAuthorizeHandler,
-	// but we check here first so we return a consistent JSON error instead of
-	// relying on the library's error formatting.
-	_, ok, err := middleware.GetLoggedInUserID(c)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
-		c.Abort()
-		return
-	}
-
+	// Delegate entirely to the library.
+	// The library's userAuthorizeHandler already redirects unauthenticated
+	// users to /login with preserved query params (RFC 6749 §4.1.2.1).
 	if err := o.Srv.HandleAuthorizeRequest(c.Writer, c.Request); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -170,16 +158,17 @@ func (o *OAuthController) Userinfo(c *gin.Context) {
 			return
 		}
 
-		// Scope-based claim filtering per OIDC Core §5.1
+		// Scope-based claim filtering per OIDC Core §5.1.
+		// sub is a stable numeric ID (OIDC §4.1.1.1: MUST be issuer-scoped, never reassigned).
 		claims := map[string]any{
-			"sub": token.GetUserID(),
+			"sub": fmt.Sprintf("%d", user.ID),
 		}
 		scope := token.GetScope()
 		if hasScope(scope, "profile") {
-			claims["name"] = token.GetUserID()
+			claims["name"] = user.Username
 		}
-		if hasScope(scope, "email") {
-			claims["email"] = user.Email
+		if hasScope(scope, "email") && user.Email != nil {
+			claims["email"] = *user.Email
 			claims["email_verified"] = true
 		}
 

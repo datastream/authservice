@@ -193,12 +193,16 @@ func Config(c *gin.Context) {
 	}
 	issuer := fmt.Sprintf("%s://%s", schema, c.Request.Host)
 	config := map[string]interface{}{
-		"issuer":                   issuer,
-		"authorization_endpoint":   issuer + "/oauth/authorize",
-		"token_endpoint":           issuer + "/oauth/token",
-		"userinfo_endpoint":        issuer + "/userinfo",
-		"scopes_supported":         []string{"openid", "profile", "email"},
-		"response_types_supported": []string{"code"},
+		"issuer":                              issuer,
+		"authorization_endpoint":              issuer + "/oauth/authorize",
+		"token_endpoint":                      issuer + "/oauth/token",
+		"userinfo_endpoint":                   issuer + "/userinfo",
+		"scopes_supported":                    []string{"profile", "email"},
+		"response_types_supported":            []string{"code"},
+		"response_modes_supported":            []string{"query", "fragment"},
+		"claims_supported":                    []string{"sub", "name", "email", "email_verified"},
+		"subject_types_supported":             []string{"public"},
+		"token_endpoint_auth_methods_supported": []string{"client_secret_post", "basic"},
 	}
 	c.JSON(http.StatusOK, config)
 }
