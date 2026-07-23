@@ -59,12 +59,11 @@ func LoginAPI(c *gin.Context) {
 		return
 	}
 
-	// Include an OAuth redirect URL if query params (client_id, etc.) are present.
-	resp := gin.H{"ok": true}
-	if q := c.Request.URL.RawQuery; len(q) > 0 {
-		resp["redirect"] = "/oauth/authorize?" + q
-	}
-	c.JSON(http.StatusOK, resp)
+	redirect := redirectOAuthAuthorize(c.Request.URL.RawQuery)
+	c.JSON(http.StatusOK, gin.H{
+		"ok":       true,
+		"redirect": redirect,
+	})
 }
 
 // SignupAPI handles POST /api/signup for SPA-based user registration.

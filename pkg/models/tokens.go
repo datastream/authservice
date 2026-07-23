@@ -10,17 +10,17 @@ import (
 
 // Token is an OAuth client.
 type Token struct {
-	ID           int32
-	UserID       string
-	ClientID     string
-	ClientSecret string
-	Domain       string
-	Public       bool
-	Describe     *string
-	RedirectURIs *string
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
-	DeletedAt    *time.Time
+	ID           int32      `json:"id"`
+	UserID       string     `json:"userId"`
+	ClientID     string     `json:"clientId"`
+	ClientSecret string     `json:"clientSecret"`
+	Domain       string     `json:"domain"`
+	Public       bool       `json:"public"`
+	Describe     *string    `json:"describe"`
+	RedirectURIs *string    `json:"redirectUris"`
+	CreatedAt    time.Time  `json:"createdAt"`
+	UpdatedAt    time.Time  `json:"updatedAt"`
+	DeletedAt    *time.Time `json:"deletedAt"`
 }
 
 // FindTokenByClientID finds a token by client ID.

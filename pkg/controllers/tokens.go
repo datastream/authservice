@@ -12,7 +12,6 @@ type TokenForm struct {
 	Domain   string `form:"domain" json:"domain" binding:"required"`
 	Public   bool   `form:"public" json:"public"`
 	Describe string `form:"describe" json:"describe"`
-	UserId   string `form:"userId" json:"userId"`
 }
 
 // TokenCreateResponse is returned only at creation time — clientSecret is never shown again.
@@ -22,14 +21,13 @@ type TokenCreateResponse struct {
 	ClientSecret string `json:"clientSecret"`
 }
 
-// TokenResponse is the JSON shape returned for single tokens.
-type TokenResponse struct {
-	ClientID     string  `json:"clientId"`
-	ClientSecret string  `json:"clientSecret"`
-	Domain       string  `json:"domain"`
-	Public       bool    `json:"public"`
-	Describe     *string `json:"describe"`
-	UserID       string  `json:"userId"`
+// redirectOAuthAuthorize returns the OAuth authorize URL with the current
+// query string, or an empty string when there is no query.
+func redirectOAuthAuthorize(q string) string {
+	if q != "" {
+		return "/oauth/authorize?" + q
+	}
+	return ""
 }
 
 func TokensList(c *gin.Context) {
@@ -43,18 +41,7 @@ func TokensList(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch tokens"})
 		return
 	}
-	resp := make([]TokenResponse, len(rawTokens))
-	for i, t := range rawTokens {
-		resp[i] = TokenResponse{
-			ClientID:     t.ClientID,
-			ClientSecret: t.ClientSecret,
-			Domain:       t.Domain,
-			Public:       t.Public,
-			Describe:     t.Describe,
-			UserID:       t.UserID,
-		}
-	}
-	c.JSON(http.StatusOK, gin.H{"tokens": resp})
+	c.JSON(http.StatusOK, gin.H{"tokens": rawTokens})
 }
 
 func ClientTokensCreate(c *gin.Context) {
@@ -68,13 +55,8 @@ func ClientTokensCreate(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	// Allow creating tokens for another user if userId is provided.
-	targetUserID := userID
-	if postForm.UserId != "" {
-		targetUserID = postForm.UserId
-	}
 	token := models.Token{
-		UserID:   targetUserID,
+		UserID:   userID,
 		Domain:   postForm.Domain,
 		Public:   postForm.Public,
 		Describe: &postForm.Describe,

@@ -8,4 +8,5 @@ sessionName: "test_session"
 redis: ""
 redisPassword: ""
 redisDB: 0
-origins: []
+origins:
+  - "https://da-portal.duckdns.org"

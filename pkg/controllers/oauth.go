@@ -100,11 +100,6 @@ func (o *OAuthController) Login(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	store, err := session.Start(c.Request.Context(), c.Writer, c.Request)
-	if err != nil {
-		middleware.Fail(c, http.StatusInternalServerError, err.Error())
-		return
-	}
 
 	// check user password
 	user, err := models.FindUserByUsername(postForm.Username)
@@ -115,20 +110,17 @@ func (o *OAuthController) Login(c *gin.Context) {
 		return
 	}
 
-	// Regenerate session to prevent session fixation
-	store.Flush()
-	if err = store.Save(); err != nil {
+	// Regenerate session to prevent session fixation (using shared helper from api.go)
+	if err := restartSession(c, func(s session.Store) {
+		s.Set("LoggedInUserID", postForm.Username)
+	}); err != nil {
 		middleware.Fail(c, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	redirect := "/userinfo"
-	if query := c.Request.URL.RawQuery; len(query) > 0 {
-		redirect = "/oauth/authorize?" + query
-	}
 	c.JSON(http.StatusOK, gin.H{
 		"message":  "Login successful",
-		"redirect": redirect,
+		"redirect": redirectOAuthAuthorize(c.Request.URL.RawQuery),
 	})
 }
 
@@ -215,10 +207,9 @@ func (o *OAuthController) RevokeToken(c *gin.Context) {
 	hint := c.PostForm("token_type_hint")
 	ctx := c.Request.Context()
 	var err error
-	switch hint {
-	case "refresh_token":
+	if hint == "refresh_token" {
 		err = o.Srv.Manager.RemoveRefreshToken(ctx, token)
-	default:
+	} else {
 		err = o.Srv.Manager.RemoveAccessToken(ctx, token)
 	}
 	// Per RFC 7678 §2.2: return 200 regardless of whether the token existed

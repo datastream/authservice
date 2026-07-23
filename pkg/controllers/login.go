@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/datastream/authservice/pkg/models"
@@ -21,7 +22,6 @@ type LoginForm struct {
 	Password string `form:"password" binding:"required"`
 }
 
-
 // TokenAuthRequest represents the authentication request body.
 type TokenAuthRequest struct {
 	RequestType string `json:"requestType"`
@@ -34,26 +34,47 @@ type TokenAuthRequest struct {
 	Domain      string `json:"domain"`
 }
 
-// TokenAuth handles the /authentication endpoint, routing to token or cookie auth.
-func TokenAuth(c *gin.Context) {
-	var req TokenAuthRequest
-	err := c.BindJSON(&req)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "bad request"})
-		return
-	}
+// OIDC discovery config cache.
+var (
+	oidcConfig   map[string]any
+	oidcConfigMu sync.RWMutex
+)
 
-	if strings.ToLower(req.RequestType) == "token" {
-		handleTokenAuth(c, req)
-		return
+func init() {
+	oidcConfig = map[string]any{
+		"issuer":                                "", // set per-request
+		"scopes_supported":                      []string{"openid", "profile", "email"},
+		"response_types_supported":              []string{"code"},
+		"response_modes_supported":              []string{"query", "fragment"},
+		"claims_supported":                      []string{"sub", "name", "email", "email_verified"},
+		"subject_types_supported":               []string{"public"},
+		"token_endpoint_auth_methods_supported": []string{"client_secret_post", "basic"},
 	}
+}
 
-	if strings.ToLower(req.RequestType) == "cookie" {
-		handleCookieAuth(c)
-		return
+// Config serves the OpenID Connect configuration endpoint.
+func Config(c *gin.Context) {
+	schema := c.Request.Header.Get("X-Forwarded-Proto")
+	if schema == "" {
+		schema = c.Request.URL.Scheme
 	}
+	if schema == "" {
+		schema = "http"
+	}
+	issuer := fmt.Sprintf("%s://%s", schema, c.Request.Host)
 
-	c.JSON(http.StatusBadRequest, gin.H{"error": "auth type error"})
+	oidcConfigMu.RLock()
+	cfg := make(map[string]any, len(oidcConfig))
+	for k, v := range oidcConfig {
+		cfg[k] = v
+	}
+	oidcConfigMu.RUnlock()
+
+	cfg["issuer"] = issuer
+	cfg["authorization_endpoint"] = issuer + "/oauth/authorize"
+	cfg["token_endpoint"] = issuer + "/oauth/token"
+	cfg["userinfo_endpoint"] = issuer + "/userinfo"
+	c.JSON(http.StatusOK, cfg)
 }
 
 // checkAWSHMAC validates an AWS4-HMAC-SHA256 signed request.
@@ -182,27 +203,24 @@ func doAuthToken(req TokenAuthRequest) (models.AccessToken, error) {
 	return tk, nil
 }
 
-// Config serves the OpenID Connect configuration endpoint.
-func Config(c *gin.Context) {
-	schema := c.Request.Header.Get("X-Forwarded-Proto")
-	if schema == "" {
-		schema = c.Request.URL.Scheme
+// TokenAuth handles the /authentication endpoint, routing to token or cookie auth.
+func TokenAuth(c *gin.Context) {
+	var req TokenAuthRequest
+	err := c.BindJSON(&req)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "bad request"})
+		return
 	}
-	if schema == "" {
-		schema = "http"
+
+	if strings.ToLower(req.RequestType) == "token" {
+		handleTokenAuth(c, req)
+		return
 	}
-	issuer := fmt.Sprintf("%s://%s", schema, c.Request.Host)
-	config := map[string]interface{}{
-		"issuer":                              issuer,
-		"authorization_endpoint":              issuer + "/oauth/authorize",
-		"token_endpoint":                      issuer + "/oauth/token",
-		"userinfo_endpoint":                   issuer + "/userinfo",
-		"scopes_supported":                    []string{"profile", "email"},
-		"response_types_supported":            []string{"code"},
-		"response_modes_supported":            []string{"query", "fragment"},
-		"claims_supported":                    []string{"sub", "name", "email", "email_verified"},
-		"subject_types_supported":             []string{"public"},
-		"token_endpoint_auth_methods_supported": []string{"client_secret_post", "basic"},
+
+	if strings.ToLower(req.RequestType) == "cookie" {
+		handleCookieAuth(c)
+		return
 	}
-	c.JSON(http.StatusOK, config)
+
+	c.JSON(http.StatusBadRequest, gin.H{"error": "auth type error"})
 }
