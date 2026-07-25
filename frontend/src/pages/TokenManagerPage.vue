@@ -123,7 +123,7 @@ onMounted(fetchTokens)
       <div v-if="loading" class="loading">Loading tokens...</div>
       <div v-else-if="tokens.length === 0" class="empty">No tokens yet.</div>
       <ul v-else class="token-list">
-        <li v-for="token in tokens" :key="token.clientID" class="token-item">
+        <li v-for="token in tokens" :key="token.clientId" class="token-item">
           <div class="token-info">
             <strong>{{ token.domain }}</strong>
             <span class="token-badge" :class="{ 'token-badge--public': token.public }">
@@ -131,13 +131,13 @@ onMounted(fetchTokens)
             </span>
           </div>
           <div class="token-details">
-            <p><strong>Client ID:</strong> {{ token.clientID }}</p>
+            <p><strong>Client ID:</strong> {{ token.clientId }}</p>
             <p><strong>Client Secret:</strong> {{ token.clientSecret }}</p>
             <p v-if="token.describe"><strong>Description:</strong> {{ token.describe }}</p>
           </div>
           <button
             class="btn btn-danger btn-sm"
-            @click="handleRevoke(token.clientID)"
+            @click="handleRevoke(token.clientId)"
           >
             Revoke
           </button>
@@ -204,6 +204,7 @@ onMounted(fetchTokens)
   border-radius: 6px;
   outline: none;
   transition: border-color 0.2s, box-shadow 0.2s;
+  color: #000;
 }
 
 .form-group input:focus,
@@ -294,6 +295,12 @@ onMounted(fetchTokens)
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .token-info strong {
+    color: #000;
+  }
 }
 
 .token-badge {
