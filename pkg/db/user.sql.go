@@ -10,9 +10,10 @@ import (
 	"database/sql"
 )
 
-const createUser = `-- name: CreateUser :exec
+const createUser = `-- name: CreateUser :one
 INSERT INTO users (username, hashed_password, email, created_at, updated_at)
-VALUES (?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+VALUES ($1, $2, $3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+RETURNING id
 `
 
 type CreateUserParams struct {
@@ -21,18 +22,20 @@ type CreateUserParams struct {
 	Email          sql.NullString
 }
 
-func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) error {
-	_, err := q.db.ExecContext(ctx, createUser, arg.Username, arg.HashedPassword, arg.Email)
-	return err
+func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (int32, error) {
+	row := q.db.QueryRowContext(ctx, createUser, arg.Username, arg.HashedPassword, arg.Email)
+	var id int32
+	err := row.Scan(&id)
+	return id, err
 }
 
 const getUserByID = `-- name: GetUserByID :one
 SELECT id, username, hashed_password, email, created_at, updated_at, deleted_at
 FROM users
-WHERE id = ?
+WHERE id = $1
 `
 
-func (q *Queries) GetUserByID(ctx context.Context, id interface{}) (User, error) {
+func (q *Queries) GetUserByID(ctx context.Context, id int32) (User, error) {
 	row := q.db.QueryRowContext(ctx, getUserByID, id)
 	var i User
 	err := row.Scan(
@@ -50,7 +53,7 @@ func (q *Queries) GetUserByID(ctx context.Context, id interface{}) (User, error)
 const getUserByUsername = `-- name: GetUserByUsername :one
 SELECT id, username, hashed_password, email, created_at, updated_at, deleted_at
 FROM users
-WHERE username = ?
+WHERE username = $1
 `
 
 func (q *Queries) GetUserByUsername(ctx context.Context, username string) (User, error) {

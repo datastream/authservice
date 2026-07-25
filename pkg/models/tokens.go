@@ -76,6 +76,7 @@ func FindTokensByDisplayDomain(domain string) ([]Token, error) {
 // Save persists the token (INSERT).
 // Returns ErrDBNotInitialized if the database is not ready, or the underlying
 // query error (e.g. unique constraint violation).
+// On success, populates t.ID with the auto-generated primary key.
 func (t *Token) Save() error {
 	if querier == nil {
 		return ErrDBNotInitialized
@@ -95,7 +96,7 @@ func (t *Token) Save() error {
 		}
 		t.ClientSecret = secret
 	}
-	return querier.CreateToken(context.Background(), db.CreateTokenParams{
+	id, err := querier.CreateToken(context.Background(), db.CreateTokenParams{
 		UserID:       t.UserID,
 		ClientID:     t.ClientID,
 		ClientSecret: t.ClientSecret,
@@ -103,6 +104,11 @@ func (t *Token) Save() error {
 		Public:       db.BoolToInt64(t.Public),
 		RedirectUris: db.ToNullString(t.RedirectURIs),
 	})
+	if err != nil {
+		return err
+	}
+	t.ID = id
+	return nil
 }
 
 // Delete removes the token.

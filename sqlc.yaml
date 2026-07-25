@@ -1,8 +1,8 @@
 version: "2"
 sql:
-  - engine: "sqlite"
+  - engine: "postgresql"
     queries: "pkg/db/queries"
-    schema: "pkg/db/schema"
+    schema: "pkg/db/schema/schema_postgres.sql"
     gen:
       go:
         package: "db"

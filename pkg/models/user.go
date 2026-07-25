@@ -43,15 +43,21 @@ func FindUserByUsername(username string) (*User, error) {
 // Save persists the user (INSERT).
 // Returns ErrDBNotInitialized if the database is not ready, or the underlying
 // query error (e.g. unique constraint violation on duplicate username).
+// On success, populates u.ID with the auto-generated primary key.
 func (u *User) Save() error {
 	if querier == nil {
 		return ErrDBNotInitialized
 	}
-	return querier.CreateUser(context.Background(), db.CreateUserParams{
+	id, err := querier.CreateUser(context.Background(), db.CreateUserParams{
 		Username:       u.Username,
 		HashedPassword: u.HashedPassword,
 		Email:          db.ToNullString(u.Email),
 	})
+	if err != nil {
+		return err
+	}
+	u.ID = id
+	return nil
 }
 
 // GenHashedPassword hashes the provided password.

@@ -92,14 +92,17 @@ func InterfaceToInt64(v interface{}) int64 {
 
 // Int64ToBool converts a sqlc-generated int64 to bool.
 func Int64ToBool(v interface{}) bool {
-	if n, ok := v.(int64); ok {
+	switch n := v.(type) {
+	case int64:
+		return n != 0
+	case int32:
 		return n != 0
 	}
 	return false
 }
 
-// BoolToInt64 converts Go bool to SQLite int64.
-func BoolToInt64(b bool) int64 {
+// BoolToInt32 converts Go bool to int32 for sqlc-generated code.
+func BoolToInt32(b bool) int32 {
 	if b {
 		return 1
 	}

@@ -10,7 +10,7 @@ import (
 )
 
 type AccessToken struct {
-	ID          interface{}
+	ID          int32
 	UserName    string
 	AccessKey   string
 	SecretKey   string
@@ -21,12 +21,12 @@ type AccessToken struct {
 }
 
 type Token struct {
-	ID           interface{}
+	ID           int32
 	UserID       string
 	ClientID     string
 	ClientSecret string
 	Domain       string
-	Public       int64
+	Public       int32
 	Description  sql.NullString
 	RedirectUris sql.NullString
 	CreatedAt    time.Time
@@ -35,7 +35,7 @@ type Token struct {
 }
 
 type User struct {
-	ID             interface{}
+	ID             int32
 	Username       string
 	HashedPassword []byte
 	Email          sql.NullString

@@ -1,13 +1,13 @@
 ---
 listenAddress: ":9096"
-domain: "https://da-portal.duckdns.org"
+domain: "https://da-reg.duckdns.org"
 logFile: "authserver.log"
 dbFile: "authserver.db"
 databaseType: postgresql
-databaseURI: postgres://da:UaxKs1wdaxZ12xjeoz@localhost/auth
+databaseURI: postgres://devops:devops@localhost/auth
 sessionName: "authserver_session"
 redis: "localhost:6379"
 redisPassword: "Lxv-xw12dZhd=MxkN-wRt13"
 redisDB: 0
 origins:
-  - "https://da-portal.duckdns.org"
+  - "https://da-reg.duckdns.org"

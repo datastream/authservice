@@ -1,13 +1,14 @@
 -- name: GetUserByUsername :one
 SELECT id, username, hashed_password, email, created_at, updated_at, deleted_at
 FROM users
-WHERE username = ?;
+WHERE username = $1;
 
--- name: CreateUser :exec
+-- name: CreateUser :one
 INSERT INTO users (username, hashed_password, email, created_at, updated_at)
-VALUES (?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+VALUES ($1, $2, $3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+RETURNING id;
 
 -- name: GetUserByID :one
 SELECT id, username, hashed_password, email, created_at, updated_at, deleted_at
 FROM users
-WHERE id = ?;
+WHERE id = $1;

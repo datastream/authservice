@@ -35,7 +35,7 @@ func TestCreateUserAndFindByUsername(t *testing.T) {
 	q := Queries{db: openTestDB(t)}
 
 	// Task 6.1: INSERT user with description and SELECT back
-	err := q.CreateUser(context.Background(), CreateUserParams{
+	_, err := q.CreateUser(context.Background(), CreateUserParams{
 		Username:       "testuser",
 		HashedPassword: []byte("hashed_password"),
 		Email:          sql.NullString{String: "test@example.com", Valid: true},
@@ -58,7 +58,7 @@ func TestCreateTokenAndFindByClientID(t *testing.T) {
 	q := Queries{db: openTestDB(t)}
 
 	// Task 6.2: INSERT token with description and SELECT back
-	err := q.CreateToken(context.Background(), CreateTokenParams{
+	_, err := q.CreateToken(context.Background(), CreateTokenParams{
 		UserID:       "user-1",
 		ClientID:     "client-abc",
 		ClientSecret: "secret-xyz",
@@ -81,7 +81,7 @@ func TestCreateTokenWithDescription(t *testing.T) {
 	q := Queries{db: openTestDB(t)}
 
 	// Insert with description
-	err := q.CreateToken(context.Background(), CreateTokenParams{
+	_, err := q.CreateToken(context.Background(), CreateTokenParams{
 		UserID:       "user-desc",
 		ClientID:     "client-desc",
 		ClientSecret: "secret-desc",
@@ -103,7 +103,7 @@ func TestTokensWithNullDescription(t *testing.T) {
 	q := Queries{db: openTestDB(t)}
 
 	// Insert without description
-	err := q.CreateToken(context.Background(), CreateTokenParams{
+	_, err := q.CreateToken(context.Background(), CreateTokenParams{
 		UserID:       "user-nullable",
 		ClientID:     "client-null-desc",
 		ClientSecret: "secret-null",
@@ -124,7 +124,7 @@ func TestGetTokensByUserID(t *testing.T) {
 	// Insert multiple tokens for same user
 	for i := 0; i < 3; i++ {
 		clientID := "user-multi-" + string(rune('a'+i))
-		err := q.CreateToken(context.Background(), CreateTokenParams{
+		_, err := q.CreateToken(context.Background(), CreateTokenParams{
 			UserID:       "user-multi",
 			ClientID:     clientID,
 			ClientSecret: "secret-" + string(rune('a'+i)),
@@ -144,7 +144,7 @@ func TestUpdateRedirectURIs(t *testing.T) {
 	q := Queries{db: openTestDB(t)}
 
 	// Create token first
-	err := q.CreateToken(context.Background(), CreateTokenParams{
+	_, err := q.CreateToken(context.Background(), CreateTokenParams{
 		UserID:       "user-update",
 		ClientID:     "client-update",
 		ClientSecret: "secret-update",
@@ -172,7 +172,7 @@ func TestDeleteToken(t *testing.T) {
 	q := Queries{db: openTestDB(t)}
 
 	// Create token first
-	err := q.CreateToken(context.Background(), CreateTokenParams{
+	_, err := q.CreateToken(context.Background(), CreateTokenParams{
 		UserID:       "user-delete",
 		ClientID:     "client-delete",
 		ClientSecret: "secret-delete",
@@ -197,7 +197,7 @@ func TestGetTokensByDomain(t *testing.T) {
 	// Insert tokens for same domain
 	for i := 0; i < 3; i++ {
 		clientID := "domain-same-" + string(rune('a'+i))
-		err := q.CreateToken(context.Background(), CreateTokenParams{
+		_, err := q.CreateToken(context.Background(), CreateTokenParams{
 			UserID:       "user-domain-" + string(rune('a'+i)),
 			ClientID:     clientID,
 			ClientSecret: "secret-" + string(rune('a'+i)),
@@ -264,7 +264,7 @@ func TestDescriptionNotReservedKeyword(t *testing.T) {
 	q := Queries{db: openTestDB(t)}
 
 	// Insert with NULL description (column must accept NULL)
-	err := q.CreateToken(context.Background(), CreateTokenParams{
+	_, err := q.CreateToken(context.Background(), CreateTokenParams{
 		UserID:       "user-null",
 		ClientID:     "client-null",
 		ClientSecret: "secret-null",
@@ -274,7 +274,7 @@ func TestDescriptionNotReservedKeyword(t *testing.T) {
 	require.NoError(t, err)
 
 	// Insert with non-NULL description
-	err = q.CreateToken(context.Background(), CreateTokenParams{
+	_, err = q.CreateToken(context.Background(), CreateTokenParams{
 		UserID:       "user-with-desc",
 		ClientID:     "client-with-desc",
 		ClientSecret: "secret-with-desc",
