@@ -15,7 +15,7 @@ type Token struct {
 	ClientSecret string     `json:"clientSecret"`
 	Domain       string     `json:"domain"`
 	Public       bool       `json:"public"`
-	Describe     *string    `json:"describe"`
+	Description  *string    `json:"description"`
 	RedirectURIs *string    `json:"redirectUris"`
 	CreatedAt    time.Time  `json:"createdAt"`
 	UpdatedAt    time.Time  `json:"updatedAt"`
@@ -133,7 +133,7 @@ func toToken(t *db.Token) *Token {
 		ClientSecret: db.InterfaceToString(t.ClientSecret),
 		Domain:       db.InterfaceToString(t.Domain),
 		Public:       db.Int64ToBool(t.Public),
-		Describe:     db.NullStringToString(t.Describe),
+		Description:  db.NullStringToString(t.Description),
 		RedirectURIs: db.NullStringToString(t.RedirectUris),
 		CreatedAt:    t.CreatedAt,
 		UpdatedAt:    t.UpdatedAt,

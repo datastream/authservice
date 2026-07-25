@@ -10,14 +10,14 @@ import (
 )
 
 type AccessToken struct {
-	ID        interface{}
-	UserName  string
-	AccessKey string
-	SecretKey string
-	Describe  sql.NullString
-	CreatedAt time.Time
-	UpdatedAt time.Time
-	DeletedAt sql.NullTime
+	ID          interface{}
+	UserName    string
+	AccessKey   string
+	SecretKey   string
+	Description sql.NullString
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+	DeletedAt   sql.NullTime
 }
 
 type Token struct {
@@ -27,7 +27,7 @@ type Token struct {
 	ClientSecret string
 	Domain       string
 	Public       int64
-	Describe     sql.NullString
+	Description  sql.NullString
 	RedirectUris sql.NullString
 	CreatedAt    time.Time
 	UpdatedAt    time.Time

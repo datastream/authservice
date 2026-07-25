@@ -11,7 +11,7 @@ import (
 )
 
 const createToken = `-- name: CreateToken :exec
-INSERT INTO tokens (user_id, client_id, client_secret, domain, public, describe, redirect_uris, created_at, updated_at)
+INSERT INTO tokens (user_id, client_id, client_secret, domain, public, description, redirect_uris, created_at, updated_at)
 VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 `
 
@@ -21,7 +21,7 @@ type CreateTokenParams struct {
 	ClientSecret string
 	Domain       string
 	Public       int64
-	Describe     sql.NullString
+	Description  sql.NullString
 	RedirectUris sql.NullString
 }
 
@@ -32,7 +32,7 @@ func (q *Queries) CreateToken(ctx context.Context, arg CreateTokenParams) error 
 		arg.ClientSecret,
 		arg.Domain,
 		arg.Public,
-		arg.Describe,
+		arg.Description,
 		arg.RedirectUris,
 	)
 	return err
@@ -49,7 +49,7 @@ func (q *Queries) DeleteToken(ctx context.Context, clientID string) error {
 }
 
 const getTokenByClientID = `-- name: GetTokenByClientID :one
-SELECT id, user_id, client_id, client_secret, domain, public, describe, redirect_uris, created_at, updated_at, deleted_at
+SELECT id, user_id, client_id, client_secret, domain, public, description, redirect_uris, created_at, updated_at, deleted_at
 FROM tokens
 WHERE client_id = ?
 `
@@ -64,7 +64,7 @@ func (q *Queries) GetTokenByClientID(ctx context.Context, clientID string) (Toke
 		&i.ClientSecret,
 		&i.Domain,
 		&i.Public,
-		&i.Describe,
+		&i.Description,
 		&i.RedirectUris,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -74,7 +74,7 @@ func (q *Queries) GetTokenByClientID(ctx context.Context, clientID string) (Toke
 }
 
 const getTokenByID = `-- name: GetTokenByID :one
-SELECT id, user_id, client_id, client_secret, domain, public, describe, redirect_uris, created_at, updated_at, deleted_at
+SELECT id, user_id, client_id, client_secret, domain, public, description, redirect_uris, created_at, updated_at, deleted_at
 FROM tokens
 WHERE id = ?
 `
@@ -89,7 +89,7 @@ func (q *Queries) GetTokenByID(ctx context.Context, id interface{}) (Token, erro
 		&i.ClientSecret,
 		&i.Domain,
 		&i.Public,
-		&i.Describe,
+		&i.Description,
 		&i.RedirectUris,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -99,7 +99,7 @@ func (q *Queries) GetTokenByID(ctx context.Context, id interface{}) (Token, erro
 }
 
 const getTokensByDomain = `-- name: GetTokensByDomain :many
-SELECT id, user_id, client_id, client_secret, domain, public, describe, redirect_uris, created_at, updated_at, deleted_at
+SELECT id, user_id, client_id, client_secret, domain, public, description, redirect_uris, created_at, updated_at, deleted_at
 FROM tokens
 WHERE domain = ?
 `
@@ -120,7 +120,7 @@ func (q *Queries) GetTokensByDomain(ctx context.Context, domain string) ([]Token
 			&i.ClientSecret,
 			&i.Domain,
 			&i.Public,
-			&i.Describe,
+			&i.Description,
 			&i.RedirectUris,
 			&i.CreatedAt,
 			&i.UpdatedAt,
@@ -140,7 +140,7 @@ func (q *Queries) GetTokensByDomain(ctx context.Context, domain string) ([]Token
 }
 
 const getTokensByUserID = `-- name: GetTokensByUserID :many
-SELECT id, user_id, client_id, client_secret, domain, public, describe, redirect_uris, created_at, updated_at, deleted_at
+SELECT id, user_id, client_id, client_secret, domain, public, description, redirect_uris, created_at, updated_at, deleted_at
 FROM tokens
 WHERE user_id = ?
 `
@@ -161,7 +161,7 @@ func (q *Queries) GetTokensByUserID(ctx context.Context, userID string) ([]Token
 			&i.ClientSecret,
 			&i.Domain,
 			&i.Public,
-			&i.Describe,
+			&i.Description,
 			&i.RedirectUris,
 			&i.CreatedAt,
 			&i.UpdatedAt,

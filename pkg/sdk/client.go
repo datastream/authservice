@@ -177,7 +177,7 @@ func (c *Client) UserInfo(ctx context.Context) (*UserInfo, error) {
 type TokenForm struct {
 	Domain   string `json:"domain"`
 	Public   bool   `json:"public"`
-	Describe string `json:"describe,omitempty"`
+	Description string `json:"description,omitempty"`
 }
 
 type CreateTokenResponse struct {

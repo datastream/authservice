@@ -13,7 +13,7 @@ import (
 type TokenForm struct {
 	Domain   string `form:"domain" json:"domain" binding:"required"`
 	Public   bool   `form:"public" json:"public"`
-	Describe string `form:"describe" json:"describe"`
+	Description string `form:"description" json:"description"`
 }
 
 // TokenCreateResponse is returned only at creation time — clientSecret is never shown again.
@@ -61,7 +61,7 @@ func ClientTokensCreate(c *gin.Context) {
 		UserID:   userID,
 		Domain:   postForm.Domain,
 		Public:   postForm.Public,
-		Describe: &postForm.Describe,
+		Description: &postForm.Description,
 	}
 	if err := token.Save(); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create token"})

@@ -136,7 +136,7 @@ func CreateTestClient(t *testing.T, userID, domain, redirectURIs string) (client
 		UserID:       userID,
 		Domain:       domain,
 		Public:       true,
-		Describe:     StringPtr("test client"),
+		Description:  StringPtr("test client"),
 		RedirectURIs: StringPtr(redirectURIs),
 	}
 	require.NoError(t, token.Save())

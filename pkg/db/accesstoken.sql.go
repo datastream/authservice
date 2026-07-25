@@ -10,7 +10,7 @@ import (
 )
 
 const getAccessTokenByAccessKey = `-- name: GetAccessTokenByAccessKey :one
-SELECT id, user_name, access_key, secret_key, describe, created_at, updated_at, deleted_at
+SELECT id, user_name, access_key, secret_key, description, created_at, updated_at, deleted_at
 FROM access_tokens
 WHERE access_key = ?
 `
@@ -23,7 +23,7 @@ func (q *Queries) GetAccessTokenByAccessKey(ctx context.Context, accessKey strin
 		&i.UserName,
 		&i.AccessKey,
 		&i.SecretKey,
-		&i.Describe,
+		&i.Description,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,
@@ -32,7 +32,7 @@ func (q *Queries) GetAccessTokenByAccessKey(ctx context.Context, accessKey strin
 }
 
 const getAccessTokenByAccessKeyAndSecretKey = `-- name: GetAccessTokenByAccessKeyAndSecretKey :one
-SELECT id, user_name, access_key, secret_key, describe, created_at, updated_at, deleted_at
+SELECT id, user_name, access_key, secret_key, description, created_at, updated_at, deleted_at
 FROM access_tokens
 WHERE access_key = ? AND secret_key = ?
 `
@@ -50,7 +50,7 @@ func (q *Queries) GetAccessTokenByAccessKeyAndSecretKey(ctx context.Context, arg
 		&i.UserName,
 		&i.AccessKey,
 		&i.SecretKey,
-		&i.Describe,
+		&i.Description,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeletedAt,

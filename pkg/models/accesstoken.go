@@ -13,7 +13,7 @@ type AccessToken struct {
 	UserName  string
 	AccessKey string
 	SecretKey string
-	Describe  *string
+	Description *string
 	CreatedAt time.Time
 	UpdatedAt time.Time
 	DeletedAt *time.Time
@@ -41,7 +41,7 @@ func toAccessToken(t db.AccessToken) AccessToken {
 		UserName:  db.InterfaceToString(t.UserName),
 		AccessKey: db.InterfaceToString(t.AccessKey),
 		SecretKey: db.InterfaceToString(t.SecretKey),
-		Describe:  db.NullStringToString(t.Describe),
+		Description:  db.NullStringToString(t.Description),
 		CreatedAt: t.CreatedAt,
 		UpdatedAt: t.UpdatedAt,
 		DeletedAt: db.NullTimeToTimePtr(t.DeletedAt),
