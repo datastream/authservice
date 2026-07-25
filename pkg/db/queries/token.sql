@@ -10,7 +10,7 @@ WHERE id = ?;
 
 -- name: CreateToken :exec
 INSERT INTO tokens (user_id, client_id, client_secret, domain, public, describe, redirect_uris, created_at, updated_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'));
+VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
 
 -- name: DeleteToken :exec
 DELETE FROM tokens
@@ -28,5 +28,5 @@ WHERE domain = ?;
 
 -- name: UpdateRedirectURIs :exec
 UPDATE tokens
-SET redirect_uris = ?, updated_at = datetime('now')
+SET redirect_uris = ?, updated_at = CURRENT_TIMESTAMP
 WHERE client_id = ?;

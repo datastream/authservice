@@ -125,8 +125,9 @@ func UpdateRedirectURIs(clientID string, uris *string) error {
 }
 
 func toToken(t *db.Token) *Token {
+	id := db.InterfaceToInt64(t.ID)
 	return &Token{
-		ID:           int32(t.ID),
+		ID:           int32(id),
 		UserID:       db.InterfaceToString(t.UserID),
 		ClientID:     db.InterfaceToString(t.ClientID),
 		ClientSecret: db.InterfaceToString(t.ClientSecret),

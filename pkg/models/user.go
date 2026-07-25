@@ -2,7 +2,6 @@ package models
 
 import (
 	"context"
-	"database/sql"
 	"time"
 
 	"github.com/datastream/authservice/pkg/db"
@@ -71,20 +70,12 @@ func (u *User) CheckPassword(password string) error {
 }
 
 func dbUserToUser(u db.User) *User {
-	var email *string
-	switch e := u.Email.(type) {
-	case sql.NullString:
-		email = db.NullStringToString(e)
-	case string:
-		email = &e
-	case nil:
-		email = nil
-	}
+	id := db.InterfaceToInt64(u.ID)
 	return &User{
-		ID:             int32(u.ID),
+		ID:             int32(id),
 		Username:       db.InterfaceToString(u.Username),
 		HashedPassword: u.HashedPassword,
-		Email:          email,
+		Email:          db.NullStringToString(u.Email),
 		CreatedAt:      u.CreatedAt,
 		UpdatedAt:      u.UpdatedAt,
 		DeletedAt:      db.NullTimeToTimePtr(u.DeletedAt),

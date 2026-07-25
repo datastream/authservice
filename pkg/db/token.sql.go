@@ -12,14 +12,14 @@ import (
 
 const createToken = `-- name: CreateToken :exec
 INSERT INTO tokens (user_id, client_id, client_secret, domain, public, describe, redirect_uris, created_at, updated_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 `
 
 type CreateTokenParams struct {
-	UserID       interface{}
-	ClientID     interface{}
-	ClientSecret interface{}
-	Domain       interface{}
+	UserID       string
+	ClientID     string
+	ClientSecret string
+	Domain       string
 	Public       int64
 	Describe     sql.NullString
 	RedirectUris sql.NullString
@@ -43,7 +43,7 @@ DELETE FROM tokens
 WHERE client_id = ?
 `
 
-func (q *Queries) DeleteToken(ctx context.Context, clientID interface{}) error {
+func (q *Queries) DeleteToken(ctx context.Context, clientID string) error {
 	_, err := q.db.ExecContext(ctx, deleteToken, clientID)
 	return err
 }
@@ -54,7 +54,7 @@ FROM tokens
 WHERE client_id = ?
 `
 
-func (q *Queries) GetTokenByClientID(ctx context.Context, clientID interface{}) (Token, error) {
+func (q *Queries) GetTokenByClientID(ctx context.Context, clientID string) (Token, error) {
 	row := q.db.QueryRowContext(ctx, getTokenByClientID, clientID)
 	var i Token
 	err := row.Scan(
@@ -79,7 +79,7 @@ FROM tokens
 WHERE id = ?
 `
 
-func (q *Queries) GetTokenByID(ctx context.Context, id int64) (Token, error) {
+func (q *Queries) GetTokenByID(ctx context.Context, id interface{}) (Token, error) {
 	row := q.db.QueryRowContext(ctx, getTokenByID, id)
 	var i Token
 	err := row.Scan(
@@ -104,7 +104,7 @@ FROM tokens
 WHERE domain = ?
 `
 
-func (q *Queries) GetTokensByDomain(ctx context.Context, domain interface{}) ([]Token, error) {
+func (q *Queries) GetTokensByDomain(ctx context.Context, domain string) ([]Token, error) {
 	rows, err := q.db.QueryContext(ctx, getTokensByDomain, domain)
 	if err != nil {
 		return nil, err
@@ -145,7 +145,7 @@ FROM tokens
 WHERE user_id = ?
 `
 
-func (q *Queries) GetTokensByUserID(ctx context.Context, userID interface{}) ([]Token, error) {
+func (q *Queries) GetTokensByUserID(ctx context.Context, userID string) ([]Token, error) {
 	rows, err := q.db.QueryContext(ctx, getTokensByUserID, userID)
 	if err != nil {
 		return nil, err
@@ -182,13 +182,13 @@ func (q *Queries) GetTokensByUserID(ctx context.Context, userID interface{}) ([]
 
 const updateRedirectURIs = `-- name: UpdateRedirectURIs :exec
 UPDATE tokens
-SET redirect_uris = ?, updated_at = datetime('now')
+SET redirect_uris = ?, updated_at = CURRENT_TIMESTAMP
 WHERE client_id = ?
 `
 
 type UpdateRedirectURIsParams struct {
 	RedirectUris sql.NullString
-	ClientID     interface{}
+	ClientID     string
 }
 
 func (q *Queries) UpdateRedirectURIs(ctx context.Context, arg UpdateRedirectURIsParams) error {

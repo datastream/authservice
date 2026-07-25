@@ -69,12 +69,25 @@ func NullTimeToTimePtr(nt sql.NullTime) *time.Time {
 	return nil
 }
 
-// InterfaceToString converts a sqlc-generated interface{} to string.
+// InterfaceToString converts a sqlc-generated interface{} (or bare string) to string.
 func InterfaceToString(v interface{}) string {
 	if s, ok := v.(string); ok {
 		return s
 	}
 	return ""
+}
+
+// InterfaceToInt64 converts a sqlc-generated interface{} (or int64) to int64.
+func InterfaceToInt64(v interface{}) int64 {
+	switch n := v.(type) {
+	case int64:
+		return n
+	case int32:
+		return int64(n)
+	case nil:
+		return 0
+	}
+	return 0
 }
 
 // Int64ToBool converts a sqlc-generated int64 to bool.

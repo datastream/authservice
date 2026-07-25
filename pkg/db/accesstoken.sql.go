@@ -15,7 +15,7 @@ FROM access_tokens
 WHERE access_key = ?
 `
 
-func (q *Queries) GetAccessTokenByAccessKey(ctx context.Context, accessKey interface{}) (AccessToken, error) {
+func (q *Queries) GetAccessTokenByAccessKey(ctx context.Context, accessKey string) (AccessToken, error) {
 	row := q.db.QueryRowContext(ctx, getAccessTokenByAccessKey, accessKey)
 	var i AccessToken
 	err := row.Scan(
@@ -38,8 +38,8 @@ WHERE access_key = ? AND secret_key = ?
 `
 
 type GetAccessTokenByAccessKeyAndSecretKeyParams struct {
-	AccessKey interface{}
-	SecretKey interface{}
+	AccessKey string
+	SecretKey string
 }
 
 func (q *Queries) GetAccessTokenByAccessKeyAndSecretKey(ctx context.Context, arg GetAccessTokenByAccessKeyAndSecretKeyParams) (AccessToken, error) {

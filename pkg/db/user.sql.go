@@ -7,17 +7,18 @@ package db
 
 import (
 	"context"
+	"database/sql"
 )
 
 const createUser = `-- name: CreateUser :exec
 INSERT INTO users (username, hashed_password, email, created_at, updated_at)
-VALUES (?, ?, ?, datetime('now'), datetime('now'))
+VALUES (?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 `
 
 type CreateUserParams struct {
-	Username       interface{}
+	Username       string
 	HashedPassword []byte
-	Email          interface{}
+	Email          sql.NullString
 }
 
 func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) error {
@@ -31,7 +32,7 @@ FROM users
 WHERE id = ?
 `
 
-func (q *Queries) GetUserByID(ctx context.Context, id int64) (User, error) {
+func (q *Queries) GetUserByID(ctx context.Context, id interface{}) (User, error) {
 	row := q.db.QueryRowContext(ctx, getUserByID, id)
 	var i User
 	err := row.Scan(
@@ -52,7 +53,7 @@ FROM users
 WHERE username = ?
 `
 
-func (q *Queries) GetUserByUsername(ctx context.Context, username interface{}) (User, error) {
+func (q *Queries) GetUserByUsername(ctx context.Context, username string) (User, error) {
 	row := q.db.QueryRowContext(ctx, getUserByUsername, username)
 	var i User
 	err := row.Scan(
