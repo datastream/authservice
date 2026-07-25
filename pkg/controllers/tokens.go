@@ -1,6 +1,8 @@
 package controllers
 
 import (
+	"errors"
+	"log"
 	"net/http"
 
 	"github.com/datastream/authservice/pkg/middleware"
@@ -84,6 +86,11 @@ func TokenRevoke(c *gin.Context) {
 		return
 	}
 	token, err := models.FindTokenByClientID(clientID)
+	if errors.Is(err, models.ErrDBNotInitialized) {
+		log.Println("DB error during token lookup for client:", clientID, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "service unavailable"})
+		return
+	}
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Token not found"})
 		return

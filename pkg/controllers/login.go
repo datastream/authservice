@@ -197,7 +197,11 @@ func AuthMiddleware() gin.HandlerFunc {
 			tk, err := checkAWSHMAC(c.Request)
 			if err != nil {
 				log.Println("[Err] AWS HMAC verification failed:", err)
-				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "bad AWS4-HMAC-SHA256"})
+				if models.IsDBError(err) {
+					c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "service unavailable"})
+				} else {
+					c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "bad AWS4-HMAC-SHA256"})
+				}
 				return
 			}
 			subject = fmt.Sprintf("tokens:%s", tk.AccessKey)
@@ -213,6 +217,10 @@ func handleTokenAuth(c *gin.Context, req TokenAuthRequest) {
 	tk, err := doAuthToken(req)
 	if err != nil {
 		log.Println("[Err] token auth failed:", err)
+		if models.IsDBError(err) {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "service unavailable"})
+			return
+		}
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error":     "auth failed",
 			"message":   err.Error(),

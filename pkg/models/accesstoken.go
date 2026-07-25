@@ -2,7 +2,6 @@ package models
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/datastream/authservice/pkg/db"
@@ -21,9 +20,11 @@ type AccessToken struct {
 }
 
 // FindByAccessKey finds an access token by access key.
+// Returns ErrDBNotInitialized if the database is not ready, or the underlying
+// query error (typically sql.ErrNoRows when the access key doesn't exist).
 func (a *AccessToken) FindByAccessKey(ak string) error {
 	if querier == nil {
-		return fmt.Errorf("models: database queries not initialized")
+		return ErrDBNotInitialized
 	}
 	t, err := querier.GetAccessTokenByAccessKey(context.Background(), ak)
 	if err != nil {

@@ -3,7 +3,6 @@ package models
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"time"
 
 	"github.com/datastream/authservice/pkg/db"
@@ -29,9 +28,11 @@ func NewUser(username, email string) *User {
 func ptrString(s string) *string { return &s }
 
 // FindUserByUsername finds a user by username.
+// Returns ErrDBNotInitialized if the database is not ready, or the underlying
+// query error (typically sql.ErrNoRows when the user doesn't exist).
 func FindUserByUsername(username string) (*User, error) {
 	if querier == nil {
-		return nil, fmt.Errorf("models: database queries not initialized")
+		return nil, ErrDBNotInitialized
 	}
 	u, err := querier.GetUserByUsername(context.Background(), username)
 	if err != nil {
@@ -41,9 +42,11 @@ func FindUserByUsername(username string) (*User, error) {
 }
 
 // Save persists the user (INSERT).
+// Returns ErrDBNotInitialized if the database is not ready, or the underlying
+// query error (e.g. unique constraint violation on duplicate username).
 func (u *User) Save() error {
 	if querier == nil {
-		return fmt.Errorf("models: database queries not initialized")
+		return ErrDBNotInitialized
 	}
 	return querier.CreateUser(context.Background(), db.CreateUserParams{
 		Username:       u.Username,

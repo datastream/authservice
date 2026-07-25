@@ -35,7 +35,9 @@ func main() {
 		printVersion()
 		return
 	}
-	srv.InitDB()
+	if err := srv.InitDB(); err != nil {
+		log.Fatalf("InitDB err: %v", err)
+	}
 	srv.InitJWKS()
 	controllers.SetJWKSConfig(srv.KeyID, srv.PrivateKey, srv.PublicKey)
 	err = srv.InitOAuthServer()

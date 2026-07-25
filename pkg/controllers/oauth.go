@@ -4,6 +4,7 @@ package controllers
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -52,9 +53,11 @@ func (o *OAuthController) AuthorizeApprove(c *gin.Context) {
 	// Verify client exists and user owns it
 	token, err := models.FindTokenByClientID(clientID)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{
-			"error": "unauthorized_client",
-		})
+		if models.IsDBError(err) {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "service unavailable"})
+		} else {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized_client"})
+		}
 		return
 	}
 	userID, ok, err := middleware.GetLoggedInUserID(c)
@@ -103,8 +106,20 @@ func (o *OAuthController) Login(c *gin.Context) {
 
 	// check user password
 	user, err := models.FindUserByUsername(postForm.Username)
-	if err != nil || user.CheckPassword(postForm.Password) != nil {
-		log.Println("Invalid credentials for user:", postForm.Username, err)
+	switch {
+	case errors.Is(err, models.ErrDBNotInitialized):
+		log.Println("DB error during login lookup for user:", postForm.Username, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "service unavailable"})
+		return
+	case err != nil:
+		// sql.ErrNoRows (user not found) — treat as wrong password
+		log.Println("Invalid credentials for user:", postForm.Username)
+		middleware.RecordLoginFailure(postForm.Username)
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
+		return
+	}
+	if err := user.CheckPassword(postForm.Password); err != nil {
+		log.Println("Invalid credentials for user:", postForm.Username)
 		middleware.RecordLoginFailure(postForm.Username)
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
 		return

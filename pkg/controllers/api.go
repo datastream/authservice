@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"errors"
 	"log"
 	"net/http"
 
@@ -45,8 +46,20 @@ func LoginAPI(c *gin.Context) {
 	}
 
 	user, err := models.FindUserByUsername(postForm.Username)
-	if err != nil || user.CheckPassword(postForm.Password) != nil {
-		log.Println("Invalid credentials for user:", postForm.Username, err)
+	switch {
+	case errors.Is(err, models.ErrDBNotInitialized):
+		log.Println("DB error during login lookup for user:", postForm.Username, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "service unavailable"})
+		return
+	case err != nil:
+		// sql.ErrNoRows (user not found) — treated as wrong password
+		log.Println("Invalid credentials for user:", postForm.Username)
+		middleware.RecordLoginFailure(postForm.Username)
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
+		return
+	}
+	if err := user.CheckPassword(postForm.Password); err != nil {
+		log.Println("Invalid credentials for user:", postForm.Username)
 		middleware.RecordLoginFailure(postForm.Username)
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
 		return
@@ -77,7 +90,15 @@ func SignupAPI(c *gin.Context) {
 	user := models.NewUser(postForm.Username, postForm.Email)
 	user.GenHashedPassword(postForm.Password)
 	if err := user.Save(); err != nil {
-		c.JSON(http.StatusConflict, gin.H{"error": "Username already exists"})
+		switch {
+		case errors.Is(err, models.ErrDBNotInitialized):
+			// Startup bug — DB not ready
+			log.Println("DB error during signup for user:", postForm.Username, err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "service unavailable"})
+		default:
+			// All other errors (constraint violations, etc.) are business errors
+			c.JSON(http.StatusConflict, gin.H{"error": "Username already exists"})
+		}
 		return
 	}
 

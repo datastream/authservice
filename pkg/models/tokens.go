@@ -2,7 +2,6 @@ package models
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/datastream/authservice/pkg/db"
@@ -24,9 +23,11 @@ type Token struct {
 }
 
 // FindTokenByClientID finds a token by client ID.
+// Returns ErrDBNotInitialized if the database is not ready, or the underlying
+// query error (typically sql.ErrNoRows when the client doesn't exist).
 func FindTokenByClientID(id string) (*Token, error) {
 	if querier == nil {
-		return nil, fmt.Errorf("models: database queries not initialized")
+		return nil, ErrDBNotInitialized
 	}
 	t, err := querier.GetTokenByClientID(context.Background(), id)
 	if err != nil {
@@ -38,7 +39,7 @@ func FindTokenByClientID(id string) (*Token, error) {
 // FindTokensByUserID finds tokens by user ID.
 func FindTokensByUserID(userID string) ([]Token, error) {
 	if querier == nil {
-		return nil, fmt.Errorf("models: database queries not initialized")
+		return nil, ErrDBNotInitialized
 	}
 	ts, err := querier.GetTokensByUserID(context.Background(), userID)
 	if err != nil {
@@ -54,7 +55,7 @@ func FindTokensByUserID(userID string) ([]Token, error) {
 // FindTokensByDomain finds tokens by domain.
 func FindTokensByDomain(host string) ([]Token, error) {
 	if querier == nil {
-		return nil, fmt.Errorf("models: database queries not initialized")
+		return nil, ErrDBNotInitialized
 	}
 	ts, err := querier.GetTokensByDomain(context.Background(), host)
 	if err != nil {
@@ -73,9 +74,11 @@ func FindTokensByDisplayDomain(domain string) ([]Token, error) {
 }
 
 // Save persists the token (INSERT).
+// Returns ErrDBNotInitialized if the database is not ready, or the underlying
+// query error (e.g. unique constraint violation).
 func (t *Token) Save() error {
 	if querier == nil {
-		return fmt.Errorf("models: database queries not initialized")
+		return ErrDBNotInitialized
 	}
 	// Generate IDs if not set
 	if t.ClientID == "" {
@@ -105,7 +108,7 @@ func (t *Token) Save() error {
 // Delete removes the token.
 func (t *Token) Delete() error {
 	if querier == nil {
-		return fmt.Errorf("models: database queries not initialized")
+		return ErrDBNotInitialized
 	}
 	return querier.DeleteToken(context.Background(), t.ClientID)
 }
@@ -113,7 +116,7 @@ func (t *Token) Delete() error {
 // UpdateRedirectURIs atomically updates redirect URIs.
 func UpdateRedirectURIs(clientID string, uris *string) error {
 	if querier == nil {
-		return fmt.Errorf("models: database queries not initialized")
+		return ErrDBNotInitialized
 	}
 	return querier.UpdateRedirectURIs(context.Background(), db.UpdateRedirectURIsParams{
 		ClientID:     clientID,
