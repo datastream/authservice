@@ -121,9 +121,9 @@ func (a *AuthService) InitDB() error {
 		return fmt.Errorf("database ping failed: %w", err)
 	}
 
-	// Create tables from embedded schema.
-	if err := db.Migrate(dbConn); err != nil {
-		return fmt.Errorf("migrate: %w", err)
+	// Create tables from dialect-specific embedded schema.
+	if err := db.Migrate(dbConn, a.DatabaseType); err != nil {
+		return fmt.Errorf("migrate (%s): %w", a.DatabaseType, err)
 	}
 
 	return nil

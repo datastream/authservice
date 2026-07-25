@@ -8,17 +8,29 @@ import (
 	"time"
 )
 
-//go:embed schema/schema.sql
-var schemaSQL embed.FS
+//go:embed schema/*.sql
+var schemaFS embed.FS
 
-// Migrate creates tables from the embedded schema file.
-func Migrate(dbConn *sql.DB) error {
-	schema, err := schemaSQL.ReadFile("schema/schema.sql")
+// migrateSchema maps dialect names to embedded schema file paths.
+var migrateSchema = map[string]string{
+	"postgresql": "schema/schema_postgres.sql",
+	"mysql":      "schema/schema_mysql.sql",
+	"sqlite":     "schema/schema_sqlite.sql",
+}
+
+// Migrate creates tables using the schema file matching the given dialect
+// ("postgresql", "mysql", or "sqlite"). Returns an error for unknown dialects.
+func Migrate(dbConn *sql.DB, dialect string) error {
+	schemaPath, ok := migrateSchema[dialect]
+	if !ok {
+		return fmt.Errorf("unknown dialect %q", dialect)
+	}
+	schema, err := schemaFS.ReadFile(schemaPath)
 	if err != nil {
-		return fmt.Errorf("read schema: %w", err)
+		return fmt.Errorf("read schema %q: %w", dialect, err)
 	}
 	if _, err := dbConn.ExecContext(context.Background(), string(schema)); err != nil {
-		return fmt.Errorf("create tables: %w", err)
+		return fmt.Errorf("migrate (%s): create tables: %w", dialect, err)
 	}
 	return nil
 }
