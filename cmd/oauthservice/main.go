@@ -36,6 +36,8 @@ func main() {
 		return
 	}
 	srv.InitDB()
+	srv.InitJWKS()
+	controllers.SetJWKSConfig(srv.KeyID, srv.PrivateKey, srv.PublicKey)
 	err = srv.InitOAuthServer()
 	if err != nil {
 		log.Fatalf("InitOAuthServer err: %v", err)
@@ -84,8 +86,10 @@ func main() {
 
 	// OAuth 2.0 endpoints (unchanged — for external clients)
 	r.GET("/.well-known/openid-configuration", controllers.Config)
+	r.GET("/.well-known/jwks.json", controllers.JWKSHandler)
 
 	oauth := controllers.NewOAuthController(srv.Server)
+	r.GET("/oauth/authorize", oauth.OAuthHandler)
 	r.POST("/oauth/authorize", oauth.OAuthHandler)
 	r.POST("/oauth/authorize/approve", oauth.AuthorizeApprove)
 	r.POST("/login", middleware.LoginRateLimit(), oauth.Login)

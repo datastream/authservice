@@ -4,9 +4,16 @@ package core
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/sha256"
+	"crypto/x509"
 	"database/sql"
+	"encoding/base64"
+	"encoding/pem"
 	"fmt"
 	"log"
+	"math/big"
 	"net/http"
 	"net/url"
 	"os"
@@ -46,7 +53,12 @@ type AuthService struct {
 	Origins       []string `yaml:"origins"`
 	OpenFgaConfig        OpenFgaConfig `yaml:"openFgaConfig"`
 	FGAAdminUsers        []string      `yaml:"fgaAdminUsers"`
-	Server *server.Server
+	Server        *server.Server
+	// JWKS fields (RFC 7517)
+	PrivateKey   *rsa.PrivateKey
+	PublicKey    *rsa.PublicKey
+	KeyID        string
+	JwksKeyFile  string `yaml:"jwksKeyFile"`
 }
 
 type OpenFgaConfig struct {
@@ -233,4 +245,80 @@ func userAuthorizeHandler(w http.ResponseWriter, r *http.Request) (userID string
 	}
 	userID = uid.(string)
 	return
+}
+
+// deriveKeyID returns a base64url(SHA-256(pubkeyDER)) key identifier
+// per RFC 7517 Section 4.5.
+func deriveKeyID(pubKey *rsa.PublicKey) string {
+	derBytes, err := x509.MarshalPKIXPublicKey(pubKey)
+	if err != nil {
+		return fmt.Sprintf("%x", pubKey.N.Bytes())
+	}
+	hash := sha256.Sum256(derBytes)
+	return base64.RawURLEncoding.EncodeToString(hash[:])
+}
+
+// encodeBase64URLInt returns base64url encoding (no padding) of a big integer.
+func encodeBase64URLInt(v *big.Int) string {
+	return base64.RawURLEncoding.EncodeToString(v.Bytes())
+}
+
+// LoadKeyFromFile reads a PEM file containing an RSA private key
+// (PKCS#1 or PKCS#8 format) and returns the parsed private key.
+func LoadKeyFromFile(path string) (*rsa.PrivateKey, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("read key file: %w", err)
+	}
+	block, _ := pem.Decode(data)
+	if block == nil {
+		return nil, fmt.Errorf("key file contains no PEM block")
+	}
+	switch block.Type {
+	case "RSA PRIVATE KEY":
+		key, err := x509.ParsePKCS1PrivateKey(block.Bytes)
+		if err != nil {
+			return nil, fmt.Errorf("parse PKCS#1 private key: %w", err)
+		}
+		return key, nil
+	case "PRIVATE KEY":
+		key, err := x509.ParsePKCS8PrivateKey(block.Bytes)
+		if err != nil {
+			return nil, fmt.Errorf("parse PKCS#8 private key: %w", err)
+		}
+		rsaKey, ok := key.(*rsa.PrivateKey)
+		if !ok {
+			return nil, fmt.Errorf("key in PEM file is not RSA")
+		}
+		return rsaKey, nil
+	default:
+		return nil, fmt.Errorf("unsupported PEM block type: %s", block.Type)
+	}
+}
+
+// InitJWKS generates or loads an RSA-2048 key pair for JWKS support.
+// If a key file is configured (JwksKeyFile), the key is loaded from file.
+// Otherwise a new key pair is generated.
+func (a *AuthService) InitJWKS() {
+	if a.JwksKeyFile != "" {
+		privKey, err := LoadKeyFromFile(a.JwksKeyFile)
+		if err != nil {
+			log.Fatalf("InitJWKS: failed to load key file %q: %v", a.JwksKeyFile, err)
+		}
+		a.PrivateKey = privKey
+		a.PublicKey = &privKey.PublicKey
+		a.KeyID = deriveKeyID(&privKey.PublicKey)
+		log.Println("InitJWKS: loaded RSA key from", a.JwksKeyFile)
+		return
+	}
+
+	// Generate a new RSA-2048 key pair
+	privKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		log.Fatalf("InitJWKS: failed to generate RSA key: %v", err)
+	}
+	a.PrivateKey = privKey
+	a.PublicKey = &privKey.PublicKey
+	a.KeyID = deriveKeyID(&privKey.PublicKey)
+	log.Println("InitJWKS: generated new RSA-2048 key pair")
 }

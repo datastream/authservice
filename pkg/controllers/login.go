@@ -3,8 +3,12 @@
 package controllers
 
 import (
+	"crypto/rsa"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"log"
+	"math/big"
 	"net/http"
 	"strings"
 	"sync"
@@ -15,6 +19,69 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/go-session/session/v3"
 )
+
+// JWKSConfig holds the data needed by JWKS and Config handlers.
+type JWKSConfig struct {
+	KeyID   string
+	PrivKey *rsa.PrivateKey
+	PubKey  *rsa.PublicKey
+}
+
+var (
+	jwksCfg   JWKSConfig
+	jwksMu    sync.RWMutex
+	jwksBytes []byte
+)
+
+// jwksResponse is the JSON structure for a JWKS document per RFC 7517.
+type jwksResponse struct {
+	Keys []jwksKey `json:"keys"`
+}
+
+// jwksKey represents a single JWK per RFC 7517.
+type jwksKey struct {
+	Kty string `json:"kty"`
+	Use string `json:"use"`
+	KID string `json:"kid"`
+	Alg string `json:"alg"`
+	N   string `json:"n"`
+	E   string `json:"e"`
+}
+
+// SetJWKSConfig updates the JWKS configuration with the server's key pair
+// and pre-computes the cached JWKS JSON bytes for fast request handling.
+func SetJWKSConfig(keyID string, privKey *rsa.PrivateKey, pubKey *rsa.PublicKey) {
+	jwksCfg.KeyID = keyID
+	jwksCfg.PrivKey = privKey
+	jwksCfg.PubKey = pubKey
+
+	// Pre-compute the JWKS document so every request avoids struct allocation + JSON marshaling.
+	jwksBytes, _ = json.Marshal(jwksResponse{
+		Keys: []jwksKey{
+			{
+				Kty: "RSA",
+				Use: "sig",
+				KID: keyID,
+				Alg: "RS256",
+				N:   base64.RawURLEncoding.EncodeToString(pubKey.N.Bytes()),
+				E:   base64.RawURLEncoding.EncodeToString(big.NewInt(int64(pubKey.E)).Bytes()),
+			},
+		},
+	})
+}
+
+// JWKSHandler serves the server's public keys in RFC 7517 JWKS format.
+func JWKSHandler(c *gin.Context) {
+	jwksMu.RLock()
+	data := jwksBytes
+	jwksMu.RUnlock()
+
+	c.Header("Content-Type", "application/json")
+	c.Header("Cache-Control", "public, max-age=86400")
+	c.Data(http.StatusOK, "application/json", data)
+}
+
+// Config serves the OpenID Connect configuration endpoint.
 
 // LoginForm represents the login form fields.
 type LoginForm struct {
@@ -74,6 +141,7 @@ func Config(c *gin.Context) {
 	cfg["authorization_endpoint"] = issuer + "/oauth/authorize"
 	cfg["token_endpoint"] = issuer + "/oauth/token"
 	cfg["userinfo_endpoint"] = issuer + "/userinfo"
+	cfg["jwks_uri"] = issuer + "/.well-known/jwks.json"
 	c.JSON(http.StatusOK, cfg)
 }
 
