@@ -59,19 +59,20 @@ func TestAPILogin_MissingFields(t *testing.T) {
 func TestAPISignup_SuccessfulRegistration(t *testing.T) {
 	r, _, _ := setupOAuthTest(t)
 
-	// Use a unique username to avoid collision with other tests
+	// Use a random suffix to avoid collisions with prior test runs
+	uniqueUser := "signuptest_" + testutils.GenerateRandomString(8)
 	resp := testutils.PerformRequest(r, "POST", "/api/signup",
 		map[string]interface{}{
-			"username": "signuptest_newuser",
-			"email":    "signuptest@example.com",
+			"username": uniqueUser,
+			"email":    uniqueUser + "@example.com",
 			"password": "password123",
 		}, nil)
 
-	// Signup auto-login → 200 with session (or 409 if user already exists from prior run)
-	assert.True(t, resp.Code == http.StatusOK || resp.Code == http.StatusConflict,
-		"Signup should succeed or return conflict, got %d", resp.Code)
+	assert.Equal(t, http.StatusOK, resp.Code,
+		"Signup should succeed with 200 OK, got %d", resp.Code)
 	var body map[string]interface{}
-	_ = json.NewDecoder(resp.Body).Decode(&body)
+	require.NoError(t, json.NewDecoder(resp.Body).Decode(&body))
+	assert.Equal(t, true, body["ok"])
 }
 
 // TestAPISignup_DuplicateUsername verifies POST /api/signup with existing username.
@@ -104,6 +105,140 @@ func TestAPISignup_InvalidEmail(t *testing.T) {
 		}, nil)
 
 	assert.Equal(t, http.StatusBadRequest, resp.Code)
+}
+
+// TestAPISignup_MissingFields verifies POST /api/signup with an empty body.
+func TestAPISignup_MissingFields(t *testing.T) {
+	r, _, _ := setupOAuthTest(t)
+
+	resp := testutils.PerformRequest(r, "POST", "/api/signup",
+		map[string]interface{}{}, nil)
+
+	assert.Equal(t, http.StatusBadRequest, resp.Code)
+}
+
+// TestAPISignup_EmptyPassword verifies POST /api/signup with an empty password.
+func TestAPISignup_EmptyPassword(t *testing.T) {
+	r, _, _ := setupOAuthTest(t)
+
+	uniqueUser := "signuptest_emptypass_" + testutils.GenerateRandomString(8)
+	resp := testutils.PerformRequest(r, "POST", "/api/signup",
+		map[string]interface{}{
+			"username": uniqueUser,
+			"email":    uniqueUser + "@example.com",
+			"password": "",
+		}, nil)
+
+	assert.Equal(t, http.StatusBadRequest, resp.Code)
+}
+
+// TestAPISignup_MissingPassword verifies POST /api/signup without the password field.
+func TestAPISignup_MissingPassword(t *testing.T) {
+	r, _, _ := setupOAuthTest(t)
+
+	uniqueUser := "signuptest_nopass_" + testutils.GenerateRandomString(8)
+	resp := testutils.PerformRequest(r, "POST", "/api/signup",
+		map[string]interface{}{
+			"username": uniqueUser,
+			"email":    uniqueUser + "@example.com",
+		}, nil)
+
+	assert.Equal(t, http.StatusBadRequest, resp.Code)
+}
+
+// TestAPISignup_AutoLoginSession verifies that a successful signup sets a session cookie
+// and the session is immediately usable with GET /api/me.
+func TestAPISignup_AutoLoginSession(t *testing.T) {
+	r, _, _ := setupOAuthTest(t)
+
+	uniqueUser := "signuptest_session_" + testutils.GenerateRandomString(8)
+	resp := testutils.PerformRequest(r, "POST", "/api/signup",
+		map[string]interface{}{
+			"username": uniqueUser,
+			"email":    uniqueUser + "@example.com",
+			"password": "password123",
+		}, nil)
+
+	// 200 OK with ok=true
+	assert.Equal(t, http.StatusOK, resp.Code)
+	var body map[string]interface{}
+	require.NoError(t, json.NewDecoder(resp.Body).Decode(&body))
+	assert.Equal(t, true, body["ok"])
+
+	// Verify Set-Cookie header is present
+	cookie := resp.Header().Get("Set-Cookie")
+	require.NotEmpty(t, cookie, "Signup response should include a Set-Cookie header")
+
+	// Use the session cookie to call GET /api/me
+	meResp := testutils.PerformRequest(r, "GET", "/api/me", nil,
+		map[string]string{"Cookie": cookie})
+	assert.Equal(t, http.StatusOK, meResp.Code)
+	var meBody map[string]interface{}
+	require.NoError(t, json.NewDecoder(meResp.Body).Decode(&meBody))
+	assert.Equal(t, uniqueUser, meBody["username"])
+}
+
+// TestAPISignup_DuplicateUsernameRandomSuffix verifies 409 on re-signing up with a
+// unique username (does not depend on test ordering or the seed user "alice").
+func TestAPISignup_DuplicateUsernameRandomSuffix(t *testing.T) {
+	r, _, _ := setupOAuthTest(t)
+
+	uniqueUser := "dupcheck_" + testutils.GenerateRandomString(8)
+
+	// First signup should succeed
+	resp1 := testutils.PerformRequest(r, "POST", "/api/signup",
+		map[string]interface{}{
+			"username": uniqueUser,
+			"email":    uniqueUser + "@example.com",
+			"password": "password123",
+		}, nil)
+	assert.Equal(t, http.StatusOK, resp1.Code, "First signup should succeed, got %d", resp1.Code)
+
+	// Second signup with the same username should return 409
+	resp2 := testutils.PerformRequest(r, "POST", "/api/signup",
+		map[string]interface{}{
+			"username": uniqueUser,
+			"email":    uniqueUser + "@example.com",
+			"password": "password123",
+		}, nil)
+	assert.Equal(t, http.StatusConflict, resp2.Code,
+		"Duplicate signup should return 409, got %d", resp2.Code)
+	var body map[string]interface{}
+	require.NoError(t, json.NewDecoder(resp2.Body).Decode(&body))
+	assert.Equal(t, "Username already exists", body["error"])
+}
+
+// TestAPISignup_SubsequentLogin verifies that a newly signed-up user can immediately
+// log in with POST /api/login using the same credentials.
+func TestAPISignup_SubsequentLogin(t *testing.T) {
+	r, _, _ := setupOAuthTest(t)
+
+	uniqueUser := "signuptest_login_" + testutils.GenerateRandomString(8)
+	password := "s3cureP@ss!"
+
+	// Sign up the new user
+	signupResp := testutils.PerformRequest(r, "POST", "/api/signup",
+		map[string]interface{}{
+			"username": uniqueUser,
+			"email":    uniqueUser + "@example.com",
+			"password": password,
+		}, nil)
+
+	assert.Equal(t, http.StatusOK, signupResp.Code)
+	signupCookie := testutils.ParseSessionCookie(signupResp)
+	require.NotEmpty(t, signupCookie)
+
+	// Immediately log in with the same credentials
+	loginResp := testutils.PerformRequest(r, "POST", "/api/login",
+		map[string]interface{}{
+			"username": uniqueUser,
+			"password": password,
+		}, nil)
+
+	assert.Equal(t, http.StatusOK, loginResp.Code)
+	var loginBody map[string]interface{}
+	require.NoError(t, json.NewDecoder(loginResp.Body).Decode(&loginBody))
+	assert.Equal(t, true, loginBody["ok"])
 }
 
 // TestAPILogout_FlushesSession verifies POST /api/logout invalidates session.
