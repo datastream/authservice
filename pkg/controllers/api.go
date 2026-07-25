@@ -87,18 +87,28 @@ func SignupAPI(c *gin.Context) {
 		return
 	}
 
+	// Pre-check: if the user already exists, return 409 immediately.
+	// This avoids the catch-all default branch that incorrectly mapped all
+	// DB errors (timeouts, deadlocks, disk full, etc.) to 409.
+	existing, err := models.FindUserByUsername(postForm.Username)
+	if models.IsDBError(err) {
+		// Real DB error (connection failure, deadlock, etc.)
+		log.Println("DB error during signup lookup for user:", postForm.Username, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "service unavailable"})
+		return
+	}
+	if existing != nil {
+		c.JSON(http.StatusConflict, gin.H{"error": "Username already exists"})
+		return
+	}
+
 	user := models.NewUser(postForm.Username, postForm.Email)
 	user.GenHashedPassword(postForm.Password)
 	if err := user.Save(); err != nil {
-		switch {
-		case errors.Is(err, models.ErrDBNotInitialized):
-			// Startup bug — DB not ready
-			log.Println("DB error during signup for user:", postForm.Username, err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "service unavailable"})
-		default:
-			// All other errors (constraint violations, etc.) are business errors
-			c.JSON(http.StatusConflict, gin.H{"error": "Username already exists"})
-		}
+		// Any Save() error (connection failure, deadlock, disk full, etc.)
+		// is a server-side problem, not a business constraint violation.
+		log.Println("DB error during signup for user:", postForm.Username, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "service unavailable"})
 		return
 	}
 
